@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Version>0.1.0</Version>
+        <Title>Injection Expert</Title>
+        <Authors>Pygmalions</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Description>A dependency injection library based on dynamic IL weaving.</Description>
+        <PackageProjectUrl>https://github.com/Pygmalions/InjectionExpert</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/Pygmalions/InjectionExpert</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>IoC; DI; Dependency-Injection;</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="EmitToolbox" Version="0.1.1" />
+    </ItemGroup>
+
+</Project>

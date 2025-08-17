@@ -1,0 +1,27 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InjectionExpert", "InjectionExpert\InjectionExpert.csproj", "{4CB6155A-7CA4-455A-B6E7-DCD6F7A410B4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{97AC39D9-C046-4D72-84B4-C6D22413AB1B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InjectionExpert.Tests", "Tests\InjectionExpert.Tests\InjectionExpert.Tests.csproj", "{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4CB6155A-7CA4-455A-B6E7-DCD6F7A410B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CB6155A-7CA4-455A-B6E7-DCD6F7A410B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CB6155A-7CA4-455A-B6E7-DCD6F7A410B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CB6155A-7CA4-455A-B6E7-DCD6F7A410B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{38B5EACB-9C90-41FF-BF9F-ED8B6B78F523} = {97AC39D9-C046-4D72-84B4-C6D22413AB1B}
+	EndGlobalSection
+EndGlobal
