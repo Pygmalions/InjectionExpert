@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using EmitToolbox.Extensions;
+using EmitToolbox.Framework;
 using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Injectors;
@@ -10,21 +11,21 @@ using InjectionItem = (object, InjectionLifespan);
 
 public partial class MemberInjector
 {
-    public static void Export(ModuleBuilder module, Type type)
+    public static void Export(AssemblyBuildingContext assemblyContext, Type type)
     {
-        GenerateInjector(module, type, out _);
+        GenerateInjector(assemblyContext, type, out _);
     }
 
-    private static MemberInjector CreateInjector(ModuleBuilder module, Type type)
+    private static MemberInjector CreateInjector(AssemblyBuildingContext assemblyContext, Type type)
     {
-        var functor = GenerateInjector(module, type, out var injections)
+        var functor = GenerateInjector(assemblyContext, type, out var injections)
             .GetMethod("TryInject")!
             .CreateDelegate<Func<object, IInjectionProvider, bool, InjectionTarget?>>();
 
         return new MemberInjector(type, functor, injections);
     }
 
-    private static Type GenerateInjector(ModuleBuilder module, Type type,
+    private static Type GenerateInjector(AssemblyBuildingContext assemblyContext, Type type,
         out MultiDictionary<(Type Type, object? Key), MemberInfo> injections)
     {
         if (type.IsPrimitive || type == typeof(string))
@@ -32,21 +33,19 @@ public partial class MemberInjector
         if (type.IsGenericTypeDefinition)
             throw new InvalidOperationException($"Cannot inject generic type definition \"{type.Name}\".");
 
-        var builder = module.DefineType("MemberInjector_" + type,
-            TypeAttributes.Public | TypeAttributes.Class);
+        var typeContext = assemblyContext.DefineClass("MemberInjector_" + type);
 
         injections = new MultiDictionary<(Type Type, object? Key), MemberInfo>();
 
-        var method = builder.DefineMethod("TryInject",
-            MethodAttributes.Static | MethodAttributes.Public,
-            CallingConventions.Standard,
-            typeof(InjectionTarget?),
-            [typeof(object), typeof(IInjectionProvider), typeof(bool)]);
-        method.DefineParameter(1, ParameterAttributes.None, "target");
-        method.DefineParameter(2, ParameterAttributes.None, "provider");
-        method.DefineParameter(2, ParameterAttributes.None, "onlyNullMembers");
+        var methodContext = typeContext.Functors.Static("TryInject",
+            [
+                ParameterDefinition.Value<object>("target"),
+                ParameterDefinition.Value<IInjectionProvider>("provider"),
+                ParameterDefinition.Value<bool>("onlyNullMembers")
+            ],
+            ResultDefinition.Value<InjectionTarget?>());
 
-        var code = method.GetILGenerator();
+        var code = methodContext.Code;
 
         // Local variable to store the injection.
         var context = new EmittingContext(type, code);
@@ -159,7 +158,9 @@ public partial class MemberInjector
         code.MarkLabel(labelReturn);
         code.MethodReturn();
 
-        return builder.CreateType();
+        typeContext.Build();
+        
+        return typeContext.BuildingType;
     }
 
     private static bool IsInjectionTarget(MemberInfo member, InjectionOptionsAttribute? options)

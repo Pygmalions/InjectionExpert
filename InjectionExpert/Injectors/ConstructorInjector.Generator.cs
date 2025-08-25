@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using EmitToolbox.Extensions;
+using EmitToolbox.Framework;
 
 namespace InjectionExpert.Injectors;
 
@@ -9,20 +10,20 @@ using InjectionItem = (object, InjectionLifespan);
 
 public partial class ConstructorInjector
 {
-    public static void Export(ModuleBuilder module, Type type)
+    public static void Export(AssemblyBuildingContext assemblyContext, Type type)
     {
-        GenerateInjector(module, type);
+        GenerateInjector(assemblyContext, type);
     }
 
-    private static ConstructorInjector CreateInjector(ModuleBuilder module, Type type)
+    private static ConstructorInjector CreateInjector(AssemblyBuildingContext assemblyContext, Type type)
     {
-        var functor = GenerateInjector(module, type)
+        var functor = GenerateInjector(assemblyContext, type)
             .GetMethod("TryInject")!
             .CreateDelegate<Func<object, IInjectionProvider, InjectionTarget?>>();
         return new ConstructorInjector(type, functor);
     }
-    
-    private static Type GenerateInjector(ModuleBuilder module, Type type)
+
+    private static Type GenerateInjector(AssemblyBuildingContext assemblyContext, Type type)
     {
         if (type.IsPrimitive || type == typeof(string))
             throw new InvalidOperationException($"Cannot inject primitive type or string \"{type.Name}\".");
@@ -30,18 +31,17 @@ public partial class ConstructorInjector
             throw new InvalidOperationException($"Cannot inject abstract or interface type \"{type.Name}\".");
         if (type.IsGenericTypeDefinition)
             throw new InvalidOperationException($"Cannot inject generic type definition \"{type.Name}\".");
-        
-        var builder = module.DefineType("ConstructorInjector_" + type,
-            TypeAttributes.Public | TypeAttributes.Class);
-        
-        var method = builder.DefineMethod("TryInject",
-            MethodAttributes.Static | MethodAttributes.Public,
-            CallingConventions.Standard, typeof(InjectionTarget?),
-            [typeof(object), typeof(IInjectionProvider)]);
-        method.DefineParameter(1, ParameterAttributes.None, "target");
-        method.DefineParameter(2, ParameterAttributes.None, "provider");
-        
-        var code = method.GetILGenerator();
+
+        var typeContext = assemblyContext.DefineClass("ConstructorInjector_" + type);
+
+        var methodContext = typeContext.Functors.Static("TryInject",
+            [
+                ParameterDefinition.Value<object>("target"),
+                ParameterDefinition.Value<IInjectionProvider>("provider")
+            ],
+            ResultDefinition.Value<InjectionTarget?>());
+
+        var code = methodContext.Code;
 
         var constructors = type
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -72,12 +72,14 @@ public partial class ConstructorInjector
             code.LoadLocal(context.VariableTarget);
             code.Emit(OpCodes.Stobj, type);
         }
-        
+
         code.LoadLocal(context.VariableLatestTarget);
         code.NewObject(typeof(InjectionTarget?).GetConstructor([typeof(InjectionTarget)])!);
         code.MethodReturn();
 
-        return builder.CreateType();
+        typeContext.Build();
+        
+        return typeContext.BuildingType;
     }
 
     private static void EmitTryConstructor(ref EmittingContext context, ConstructorInfo constructor)
@@ -85,7 +87,7 @@ public partial class ConstructorInjector
         var code = context.Code;
 
         code.EmitConstructorInfo(constructor);
-        code.Emit(OpCodes.Callvirt, 
+        code.Emit(OpCodes.Callvirt,
             typeof(MethodBase).GetMethod(nameof(MethodBase.GetParameters))!);
         code.StoreLocal(context.VariableParameters);
 
@@ -103,7 +105,7 @@ public partial class ConstructorInjector
             // Load the injection to check if it is null.
             code.LoadLocalAddress(variableNullableInjection);
             code.NullableHasValue<InjectionItem>();
-            
+
             if (!parameter.HasDefaultValue)
                 code.GotoIfFalse(labelFailed);
             else
@@ -126,7 +128,7 @@ public partial class ConstructorInjector
         context.EmitLoadTarget();
 
         var variableInjection = code.DeclareLocal(typeof(InjectionItem));
-        
+
         // Load arguments.
         for (var index = 0; index < parameters.Length; ++index)
         {
@@ -182,7 +184,7 @@ public partial class ConstructorInjector
         code.NewObject(typeof(InjectionTarget).GetConstructor(
             [typeof(object), typeof(Type), typeof(ParameterInfo), typeof(MemberInfo)])!);
         code.StoreLocal(context.VariableLatestTarget);
-        
+
         code.LoadLocal(context.VariableLatestTarget);
 
         // Query the container for specific injection.
@@ -196,29 +198,29 @@ public partial class ConstructorInjector
     private readonly struct EmittingContext
     {
         public ILGenerator Code { get; }
-        
+
         public Type Type { get; }
-        
+
         public LocalBuilder VariableTarget { get; }
-        
+
         public required List<LocalBuilder> NullableInjectionVariables { get; init; }
-        
+
         public LocalBuilder VariableLatestTarget { get; }
-        
+
         public LocalBuilder VariableParameters { get; }
-        
+
         public LocalBuilder VariableMissingRequester { get; }
-        
+
         public EmittingContext(Type type, ILGenerator code)
         {
             Code = code;
             Type = type;
-            
+
             VariableTarget = code.DeclareLocal(type);
             VariableLatestTarget = code.DeclareLocal(typeof(InjectionTarget));
             VariableParameters = code.DeclareLocal(typeof(ParameterInfo[]));
             VariableMissingRequester = code.DeclareLocal(typeof(InjectionTarget?));
-            NullableInjectionVariables = (List<LocalBuilder>) [];
+            NullableInjectionVariables = (List<LocalBuilder>)[];
 
             code.LoadArgument0();
             if (type.IsValueType)
