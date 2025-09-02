@@ -1,0 +1,10 @@
+Version 0.2.0
+
+Breaking Changes:
+- Add a struct 'InjectionItem' to replace the previous '(object, InjectionLifespan)'. 
+- Separate the functor support from 'IInjectionContainer' to 'FunctorInjectionProvider'; 
+  now functor wrapper can cache singleton instances; 
+  users can extend an injection provider by combining functor wrapper and chained wrapper. 
+
+Improvements:
+- Unify the word usage in documentation.

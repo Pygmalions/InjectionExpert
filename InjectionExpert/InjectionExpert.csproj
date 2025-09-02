@@ -16,7 +16,7 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <LangVersion>preview</LangVersion>
     </PropertyGroup>
-
+    
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
@@ -24,5 +24,10 @@
     <ItemGroup>
       <PackageReference Include="EmitToolbox" Version="0.2.2" />
     </ItemGroup>
-
+    
+    <Target Name="InjectPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec" Condition="Exists('RELEASE_NOTE.txt')">
+        <PropertyGroup>
+            <PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/RELEASE_NOTE.txt"))</PackageReleaseNotes>
+        </PropertyGroup>
+    </Target>
 </Project>
