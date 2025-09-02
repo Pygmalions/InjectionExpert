@@ -4,6 +4,11 @@ Injection Expert is a dependency injection framework for .NET,
 featuring dynamic code generation for high performance and flexibility. 
 It supports constructor and member injection, generic type resolution, and advanced configuration options.
 
+Compared to `Microsoft.Extensions.DependencyInjection`, 
+this library offers more flexibility by allowing dynamically adding injections.
+This library has good compatibility with `Microsoft.Extensions.DependencyInjection`,
+`IInjectionProvider` of this library can be easily adapted to `IServiceProvider`, and vice versa.
+
 ## Key Concepts
 
 - **InjectionContainer**: The registry for dependencies. 
