@@ -5,6 +5,9 @@ Breaking Changes:
   This parameter is useful when the factory is registered for a generic type definition.
 - Delegate for `FunctorInjectionProvider` is renamed to `ProviderDelegate` for clarity.
 
+Improvements:
+- `ChainedInjectionProvider` now can correctly skip null providers in the sequence.
+
 Bug Fixes:
 - `cachingSingletons` parameter in `IInjectionProvider.FromFunctor` is now correctly handled.
 
@@ -15,6 +18,6 @@ Breaking Changes:
 - Separate the functor support from 'IInjectionContainer' to 'FunctorInjectionProvider'; 
   now functor wrapper can cache singleton instances; 
   users can extend an injection provider by combining functor wrapper and chained wrapper. 
-  
+
 Improvements:
 - Unify the word usage in documentation.
