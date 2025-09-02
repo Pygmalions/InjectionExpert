@@ -10,7 +10,7 @@ public static class InjectionContainerExtensions
     /// <param name="implementation">Type to instantiate for the requests.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer AddTransient(this IInjectionContainer container, 
+    public static IInjectionContainer AddTransient(this IInjectionContainer container,
         Type type, Type implementation, object? key = null)
     {
         container.AddInjection(type, implementation, InjectionLifespan.Transient, key);
@@ -40,12 +40,13 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddTransient<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null) where TInjection : class
+        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null)
+        where TInjection : class
     {
         container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Transient, key);
         return container;
     }
-    
+
     /// <summary>
     /// Add the specified implementation type as a scoped injection to this container.
     /// </summary>
@@ -54,7 +55,7 @@ public static class InjectionContainerExtensions
     /// <param name="implementation">Type to instantiate for the requests.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer AddScoped(this IInjectionContainer container, 
+    public static IInjectionContainer AddScoped(this IInjectionContainer container,
         Type type, Type implementation, object? key = null)
     {
         container.AddInjection(type, implementation, InjectionLifespan.Scoped, key);
@@ -68,10 +69,10 @@ public static class InjectionContainerExtensions
     /// <param name="container">The injection container to add the injection into.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer AddScoped<TImplementation>(this IInjectionContainer container,
-        object? key = null)
+    public static IInjectionContainer AddScoped<TImplementation>(
+        this IInjectionContainer container, object? key = null)
     {
-        container.AddInjection(typeof(TImplementation), typeof(TImplementation), 
+        container.AddInjection(typeof(TImplementation), typeof(TImplementation),
             InjectionLifespan.Scoped, key);
         return container;
     }
@@ -85,7 +86,8 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddScoped<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null) where TInjection : class
+        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null)
+        where TInjection : class
     {
         container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Scoped, key);
         return container;
@@ -99,8 +101,8 @@ public static class InjectionContainerExtensions
     /// <param name="implementation">Type to instantiate for the requests.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer AddSingleton(this IInjectionContainer container, Type type, Type implementation,
-        object? key = null)
+    public static IInjectionContainer AddSingleton(this IInjectionContainer container,
+        Type type, Type implementation, object? key = null)
     {
         container.AddInjection(type, implementation, InjectionLifespan.Singleton, key);
         return container;
@@ -113,8 +115,8 @@ public static class InjectionContainerExtensions
     /// <param name="container">The injection container to add the injection into.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer AddSingleton<TImplementation>(this IInjectionContainer container,
-        object? key = null)
+    public static IInjectionContainer AddSingleton<TImplementation>(
+        this IInjectionContainer container, object? key = null)
     {
         container.AddInjection(typeof(TImplementation), typeof(TImplementation), InjectionLifespan.Singleton, key);
         return container;
@@ -129,7 +131,8 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddSingleton<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null) where TInjection : class
+        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null) 
+        where TInjection : class
     {
         container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Singleton, key);
         return container;
@@ -144,12 +147,12 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddSingleton<TInjection>(this IInjectionContainer container,
-        TInjection value, object? key = null) where TInjection : notnull
+        TInjection value, object? key = null)
     {
-        container.AddInjection(typeof(TInjection), value, key);
+        container.AddInjection(typeof(TInjection), value!, key);
         return container;
     }
-    
+
     /// <summary>
     /// Add a type redirection so that requests for <typeparamref name="TFrom"/> are redirected to <typeparamref name="TTo"/>.
     /// </summary>
@@ -173,8 +176,8 @@ public static class InjectionContainerExtensions
     /// <param name="container">The injection container to remove the injection from.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
-    public static IInjectionContainer RemoveInjection<TInjection>(this IInjectionContainer container,
-        object? key = null)
+    public static IInjectionContainer RemoveInjection<TInjection>(
+        this IInjectionContainer container, object? key = null)
     {
         container.RemoveInjection(typeof(TInjection), key);
         return container;
