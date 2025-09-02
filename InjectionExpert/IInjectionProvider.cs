@@ -41,16 +41,16 @@ public interface IInjectionProvider
     /// <summary>
     /// Create a new injection provider from a functor.
     /// </summary>
-    /// <param name="factory">Factory functor.</param>
+    /// <param name="provider">Factory functor.</param>
     /// <param name="cachingSingletons">
     /// If true, the provider will cache singleton injections,
     /// and the cached instances will be return for subsequent requests;
     /// otherwise, the factory will be called every time the injection is requested.
     /// </param>
     /// <returns>Injection provider created that wraps the specified functor.</returns>
-    public static FunctorInjectionProvider FromFunctor(FunctorInjectionProvider.FactoryDelegate factory, 
-        bool cachingSingletons = true)
-        => new(factory);
+    public static FunctorInjectionProvider FromFunctor(
+        FunctorInjectionProvider.ProviderDelegate provider, bool cachingSingletons = true)
+        => new(provider, cachingSingletons);
 
     /// <summary>
     /// Create a new injection provider from a sequence of providers.
