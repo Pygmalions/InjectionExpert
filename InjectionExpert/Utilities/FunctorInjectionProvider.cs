@@ -19,8 +19,7 @@ public class FunctorInjectionProvider(
     /// </summary>
     private ConcurrentKeyedDictionary<Type, object, object>? _singletons;
     
-    public delegate (object Injection, InjectionLifespan Lifespan)?
-        FactoryDelegate(Type type, object? key, InjectionTarget target);
+    public delegate InjectionItem? FactoryDelegate(Type type, object? key, InjectionTarget target);
 
     public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
     {
@@ -37,7 +36,7 @@ public class FunctorInjectionProvider(
             return entry;
         // Cache the singleton instance.
         _singletons ??= new ConcurrentKeyedDictionary<Type, object, object>();
-        _singletons.SetValue(type, key ?? InjectionContainer.NullKey.Value, entry.Value.Injection);
+        _singletons.SetValue(type, key ?? InjectionContainer.NullKey.Value, entry.Value.Instance);
         return entry;
     }
 
