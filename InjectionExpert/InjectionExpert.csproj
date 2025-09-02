@@ -12,7 +12,7 @@
         <PackageProjectUrl>https://github.com/Pygmalions/InjectionExpert</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Pygmalions/InjectionExpert</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <PackageTags>IoC; DI; Dependency-Injection;</PackageTags>
+        <PackageTags>IoC; DI; Dependency-Injection; Injector-Generator; IL-Emitting;</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <LangVersion>preview</LangVersion>
     </PropertyGroup>
