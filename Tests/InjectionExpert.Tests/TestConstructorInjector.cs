@@ -24,9 +24,9 @@ public class TestConstructorInjector
     public void Create_Class_OneConstructor()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5)
-            .AddConstant("Sample");
+            .AddSingleton(1)
+            .AddSingleton(0.5)
+            .AddSingleton("Sample");
 
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionClass))
@@ -65,8 +65,8 @@ public class TestConstructorInjector
     public void Create_Class_TwoConstructor()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5);
+            .AddSingleton(1)
+            .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubTwoConstructorInjectionClass))
             .TryInject(out var instance, container, out _);
@@ -89,7 +89,7 @@ public class TestConstructorInjector
     public void Create_Class_Unsatisfied_Null()
     {
         var container = new InjectionContainer()
-            .AddConstant(0.5);
+            .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionClass))
             .TryInject(out var instance, container, out _);
@@ -114,9 +114,9 @@ public class TestConstructorInjector
     public void Create_Struct_OneConstructor()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5)
-            .AddConstant("Sample");
+            .AddSingleton(1)
+            .AddSingleton(0.5)
+            .AddSingleton("Sample");
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionStruct))
             .TryInject(out var instance, container, out _);
@@ -148,8 +148,8 @@ public class TestConstructorInjector
     public void Create_Struct_TwoConstructor()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5);
+            .AddSingleton(1)
+            .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubTwoConstructorInjectionStruct))
             .TryInject(out var instance, container, out _);
@@ -169,8 +169,8 @@ public class TestConstructorInjector
     public void Create_Struct_Unsatisfied_Null()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5);
+            .AddSingleton(1)
+            .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionStruct))
             .TryInject(out var instance, container, out _);
@@ -197,7 +197,7 @@ public class TestConstructorInjector
     public void Injector_WithDefaultArguments()
     {
         var container = new InjectionContainer()
-            .AddConstant(1);
+            .AddSingleton(1);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDefaultArguments))
             .TryInject(out var instance, container, out _);
@@ -226,8 +226,8 @@ public class TestConstructorInjector
     public void Injector_OverwriteDefaultArguments()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(0.5);
+            .AddSingleton(1)
+            .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDefaultArguments))
             .TryInject(out var instance, container, out _);
@@ -254,7 +254,7 @@ public class TestConstructorInjector
     public void Injector_DefaultDecimalArgument()
     {
         var container = new InjectionContainer()
-            .AddConstant(1);
+            .AddSingleton(1);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDecimalDefaultArguments))
             .TryInject(out var instance, container, out _);
@@ -277,8 +277,8 @@ public class TestConstructorInjector
     public void Injector_WithKeys()
     {
         var container = new InjectionContainer()
-            .AddConstant("Value1", 1)
-            .AddConstant("Value2", 2);
+            .AddSingleton("Value1", 1)
+            .AddSingleton("Value2", 2);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithKeys))
             .TryInject(out var instance, container, out _);

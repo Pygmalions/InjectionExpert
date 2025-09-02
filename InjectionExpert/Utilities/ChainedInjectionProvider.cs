@@ -1,8 +1,17 @@
 namespace InjectionExpert.Utilities;
 
-public readonly struct ChainedInjectionProvider(IEnumerable<IInjectionProvider> providers) : IInjectionProvider
+/// <summary>
+/// This provider allows chaining multiple injection providers together.
+/// It queries each provider in order until one returns a valid injection.
+/// If none of the providers can provide the injection, it returns null.
+/// </summary>
+/// <param name="providers">
+/// Providers to chained together.
+/// This enumerable sequence will be enumerated for each injection request.
+/// </param>
+public class ChainedInjectionProvider(IEnumerable<IInjectionProvider> providers) : IInjectionProvider
 {
-    public (object, InjectionLifespan)? GetInjection(Type type, object? key, InjectionTarget target)
+    public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
     {
         foreach (var provider in providers)
         {

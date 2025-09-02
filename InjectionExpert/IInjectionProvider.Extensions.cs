@@ -16,7 +16,7 @@ public static class InjectionProviderExtensions
     [DebuggerStepThrough, StackTraceHidden]
     public static object? GetInjection(this IInjectionProvider provider, 
         Type type, object? key = null)
-        => provider.GetInjection(type, key, default)?.Injection;
+        => provider.GetInjection(type, key, default)?.Instance;
     
     /// <summary>
     /// Get a resource of the specified category for this provider.
@@ -31,11 +31,11 @@ public static class InjectionProviderExtensions
 
     public static object RequireInjection(this IInjectionProvider provider, Type type, object? key = null)
         => provider.GetInjection(type, key) ??
-           throw new Exception($"Cannot find required injection '{type.Name}' with key '{key}'");
+           throw new Exception($"Failed to find required injection '{type.Name}' with key '{key}'");
 
     public static TObject RequireInjection<TObject>(this IInjectionProvider provider, object? key = null)
         => (TObject?)provider.GetInjection(typeof(TObject), key) ??
-           throw new Exception($"Cannot find required injection '{typeof(TObject).Name}' with key '{key}'");
+           throw new Exception($"Failed to find required injection '{typeof(TObject).Name}' with key '{key}'");
 
     [EditorBrowsable(EditorBrowsableState.Advanced)]
     public static void NewObject(this IInjectionProvider provider, object target)

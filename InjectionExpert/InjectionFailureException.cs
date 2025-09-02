@@ -10,10 +10,19 @@ public class InjectionFailureException(
     string? message = null)
     : Exception(BuildExceptionMessage(type, requester, message))
 {
-    public Type ObjectType { get; } = type;
+    /// <summary>
+    /// Type of the object to be injected.
+    /// </summary>
+    public Type TargetType { get; } = type;
 
+    /// <summary>
+    /// Provider that was used to attempt the injection.
+    /// </summary>
     public IInjectionProvider Provider { get; } = provider;
 
+    /// <summary>
+    /// Target that requests the injection.
+    /// </summary>
     public InjectionTarget Target { get; } = requester ?? default;
 
     private static string BuildExceptionMessage(Type type, InjectionTarget? requester, string? message)

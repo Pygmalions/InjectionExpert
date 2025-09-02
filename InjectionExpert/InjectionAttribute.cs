@@ -1,8 +1,9 @@
 namespace InjectionExpert;
 
 /// <summary>
-/// The marked member is a dependency injected or configured from the outside.
-/// This member should be selected by injectors, no matter they are marked as `required` or not.
+/// This attribute marks a member as dependency that should be injected (when 'enabled' is true),
+/// or a parameter that should be ignored by the injector (when 'enabled' is false).
+/// This attribute can also be used to provide an optional key for the dependency.
 /// </summary>
 /// <param name="enabled">
 /// Whether injection is enabled for this member.

@@ -30,10 +30,10 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectFields()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(2L)
-            .AddConstant(1.0)
-            .AddConstant("Sample");
+            .AddSingleton(1)
+            .AddSingleton(2L)
+            .AddSingleton(1.0)
+            .AddSingleton("Sample");
         var sample = new StubMemberInjectionTarget();
         MemberInjector
             .For(typeof(StubMemberInjectionTarget))
@@ -61,9 +61,9 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectFailed()
     {
         var container = new InjectionContainer()
-            .AddConstant(1)
-            .AddConstant(2L)
-            .AddConstant("Sample");
+            .AddSingleton(1)
+            .AddSingleton(2L)
+            .AddSingleton("Sample");
         var sample = new StubMemberInjectionTargetWithRequired()
         {
             DoubleField = 1.0
@@ -83,7 +83,7 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectProperties()
     {
         var container = new InjectionContainer()
-            .AddConstant(1);
+            .AddSingleton(1);
         var sample = new StubMemberInjectionTarget();
         MemberInjector
             .For(typeof(StubMemberInjectionTarget))
@@ -102,7 +102,7 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectOnlyNull_ReferenceTypes()
     {
         var container = new InjectionContainer()
-            .AddConstant(new StrongBox<int>(1));
+            .AddSingleton(new StrongBox<int>(1));
         var sample = new StubWithObjects()
         {
             ObjectField = new StrongBox<int>(0),
@@ -130,8 +130,8 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectOnlyNull_NullableTypes()
     {
         var container = new InjectionContainer()
-            .AddConstant<int?>(1)
-            .AddConstant<double?>(1.0);
+            .AddSingleton<int?>(1)
+            .AddSingleton<double?>(1.0);
         
         var sample = new StubWithNullable()
         {
@@ -159,8 +159,8 @@ public class TestMemberInjectorGenerator
     public void Injector_WithKeys()
     {
         var container = new InjectionContainer()
-            .AddConstant("Value1", 1)
-            .AddConstant("Value2", 2);
+            .AddSingleton("Value1", 1)
+            .AddSingleton("Value2", 2);
         var target = new StubWithKeys();
         var succeeded = MemberInjector
             .For(typeof(StubWithKeys))
@@ -186,7 +186,7 @@ public class TestMemberInjectorGenerator
     public void Injector_WithIgnoredMembers()
     {
         var container = new InjectionContainer()
-            .AddConstant(3);
+            .AddSingleton(3);
 
         var target = new StubWithIgnoredMembers()
         {
@@ -215,7 +215,7 @@ public class TestMemberInjectorGenerator
     public void Injector_WithRequiredInitMembers()
     {
         var container = new InjectionContainer()
-            .AddConstant(3);
+            .AddSingleton(3);
 
         var instance = RuntimeHelpers.GetUninitializedObject(typeof(StubWithInitOnlyMembers));
         
