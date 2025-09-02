@@ -8,9 +8,9 @@ public class TestInjectionContainer
     
     public class StubGenericType<T2, T1> : IStubGenericInterface<T1, T2>
     {
-        public T2 Member2;
+        public T2 Member2 = default!;
         
-        public T1 Member1;
+        public T1 Member1 = default!;
     }
     
     
