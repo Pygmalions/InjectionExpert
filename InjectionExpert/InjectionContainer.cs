@@ -71,7 +71,7 @@ public partial class InjectionContainer : IInjectionContainer
         }
     }
 
-    public void AddInjection(Type type, Func<IInjectionProvider, InjectionTarget, object> factory,
+    public void AddInjection(Type type, IInjectionContainer.FactoryDelegate factory,
         InjectionLifespan lifespan,
         object? key = null)
         => _entries.SetValue(type, key ?? NullKey.Value, new FactoryEntry(this, lifespan, factory));

@@ -3,6 +3,27 @@ namespace InjectionExpert;
 public static class InjectionContainerExtensions
 {
     /// <summary>
+    /// Factory delegate to get instances for injection.
+    /// </summary>
+    /// <typeparam name="TTarget">Type of instances that this factory creates.</typeparam>
+    /// <param name="provider">Injection provider that this delegate is registered in.</param>
+    /// <param name="type">
+    /// Requested type of the injection, NOT the category type;
+    /// when the category type is a generic type definition, requested type is different from category type 
+    /// </param>
+    public delegate TTarget TypedFactoryDelegate<out TTarget>(
+        IInjectionProvider provider, Type type, InjectionTarget target);
+
+    /// <summary>
+    /// Wrap a typed factory delegate to an untyped factory delegate.
+    /// </summary>
+    /// <param name="factory">Factory delegate to wrap.</param>
+    /// <typeparam name="TTarget">Type of the specified factory delegate.</typeparam>
+    /// <returns>Untyped factory delegate that returns an object instance.</returns>
+    public static IInjectionContainer.FactoryDelegate WrapToUntypedFactory<TTarget>(TypedFactoryDelegate<TTarget> factory)
+        => (provider, type, target) => factory(provider, type, target)!;
+    
+    /// <summary>
     /// Add the specified implementation type as a transient injection to this container.
     /// </summary>
     /// <param name="container">Injection container to add injection into.</param>
@@ -40,10 +61,11 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddTransient<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null)
+        TypedFactoryDelegate<TInjection> factory, object? key = null)
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Transient, key);
+        container.AddInjection(typeof(TInjection), 
+            WrapToUntypedFactory(factory), InjectionLifespan.Transient, key);
         return container;
     }
 
@@ -86,10 +108,10 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddScoped<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null)
+        TypedFactoryDelegate<TInjection> factory, object? key = null)
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Scoped, key);
+        container.AddInjection(typeof(TInjection), WrapToUntypedFactory(factory), InjectionLifespan.Scoped, key);
         return container;
     }
 
@@ -131,10 +153,10 @@ public static class InjectionContainerExtensions
     /// <param name="key">Optional key to distinguish this injection.</param>
     /// <returns>The specified injection container.</returns>
     public static IInjectionContainer AddSingleton<TInjection>(this IInjectionContainer container,
-        Func<IInjectionProvider, InjectionTarget, TInjection> factory, object? key = null) 
+        TypedFactoryDelegate<TInjection> factory, object? key = null) 
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), factory, InjectionLifespan.Singleton, key);
+        container.AddInjection(typeof(TInjection), WrapToUntypedFactory(factory), InjectionLifespan.Singleton, key);
         return container;
     }
 

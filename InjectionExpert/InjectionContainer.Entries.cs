@@ -26,18 +26,18 @@ public partial class InjectionContainer
     private class FactoryEntry(
         IInjectionProvider provider,
         InjectionLifespan lifespan,
-        Func<IInjectionProvider, InjectionTarget, object> factory)
+        IInjectionContainer.FactoryDelegate factory)
         : InjectionEntry(lifespan)
     {
-        public Func<IInjectionProvider, InjectionTarget, object> Factory { get; } = factory;
+        public IInjectionContainer.FactoryDelegate Factory { get; } = factory;
 
         private object? _cache;
 
         public override object GetValue(Type type, InjectionTarget target)
         {
             if (Lifespan == InjectionLifespan.Singleton)
-                return _cache ??= Factory(provider, target);
-            return Factory(provider, target);
+                return _cache ??= Factory(provider, type, target);
+            return Factory(provider, type, target);
         }
     }
 

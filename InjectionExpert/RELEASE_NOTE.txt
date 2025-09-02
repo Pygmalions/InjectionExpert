@@ -1,10 +1,17 @@
-Version 0.2.1
+[Version 0.2.2]
+
+Breaking Changes:
+- Requested type is provided to factory delegate as a parameter `type`.
+  This parameter is useful when the factory is registered for a generic type definition.
+- Delegate for `FunctorInjectionProvider` is renamed to `ProviderDelegate` for clarity.
+
+[Version 0.2.0]
 
 Breaking Changes:
 - Add a struct 'InjectionItem' to replace the previous '(object, InjectionLifespan)'. 
 - Separate the functor support from 'IInjectionContainer' to 'FunctorInjectionProvider'; 
   now functor wrapper can cache singleton instances; 
   users can extend an injection provider by combining functor wrapper and chained wrapper. 
-
+  
 Improvements:
 - Unify the word usage in documentation.

@@ -5,6 +5,16 @@ namespace InjectionExpert;
 public interface IInjectionContainer : IInjectionProvider
 {
     /// <summary>
+    /// Factory delegate to create instances for injection.
+    /// </summary>
+    /// <param name="provider">Injection provider that this delegate is registered in.</param>
+    /// <param name="type">
+    /// Requested type of the injection, NOT the category type;
+    /// when the category type is a generic type definition, requested type is different from category type 
+    /// </param>
+    public delegate object FactoryDelegate(IInjectionProvider provider, Type type, InjectionTarget target);
+    
+    /// <summary>
     /// Add an implementation type for the specified category type in the container.
     /// </summary>
     /// <param name="type">Category type to register.</param>
@@ -22,8 +32,7 @@ public interface IInjectionContainer : IInjectionProvider
     /// <param name="lifespan">Lifespan of the injected instances.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     [EditorBrowsable(EditorBrowsableState.Advanced)]
-    void AddInjection(Type type, Func<IInjectionProvider, InjectionTarget, object> factory,
-        InjectionLifespan lifespan, object? key = null);
+    void AddInjection(Type type, FactoryDelegate factory, InjectionLifespan lifespan, object? key = null);
 
     /// <summary>
     /// Registers a specific instance for the given category type in the container.
