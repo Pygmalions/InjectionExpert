@@ -5,6 +5,9 @@ Breaking Changes:
   This parameter is useful when the factory is registered for a generic type definition.
 - Delegate for `FunctorInjectionProvider` is renamed to `ProviderDelegate` for clarity.
 
+Bug Fixes:
+- `cachingSingletons` parameter in `IInjectionProvider.FromFunctor` is now correctly handled.
+
 [Version 0.2.0]
 
 Breaking Changes:
