@@ -9,13 +9,13 @@ namespace InjectionExpert.Utilities;
 /// Providers to chained together.
 /// This enumerable sequence will be enumerated for each injection request.
 /// </param>
-public class ChainedInjectionProvider(IEnumerable<IInjectionProvider> providers) : IInjectionProvider
+public class ChainedInjectionProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
 {
     public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
     {
         foreach (var provider in providers)
         {
-            var entry = provider.GetInjection(type, key, target);
+            var entry = provider?.GetInjection(type, key, target);
             if (entry != null)
                 return entry;
         }
