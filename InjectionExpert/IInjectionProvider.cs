@@ -61,6 +61,6 @@ public interface IInjectionProvider
     /// This sequence will be enumerated every time an injection is requested.
     /// </param>
     /// <returns>Injection provider that queries the specified sequence of providers.</returns>
-    public static ChainedInjectionProvider FromMultiple(params IEnumerable<IInjectionProvider> providers)
+    public static ChainedInjectionProvider FromMultiple(params IEnumerable<IInjectionProvider?> providers)
         => new(providers);
 }
