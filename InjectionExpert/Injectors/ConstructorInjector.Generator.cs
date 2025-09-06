@@ -20,6 +20,18 @@ public partial class ConstructorInjector
         var functor = GenerateInjector(assemblyContext, type)
             .GetMethod("TryInject")!
             .CreateDelegate<Func<object, IInjectionProvider, InjectionTarget?>>();
+
+        if (!type.IsGenericType) 
+            return new ConstructorInjector(type, functor);
+
+        /* Note:
+         * The dynamic assembly is granted access to non-public members of the target type's assembly,
+         * however, if the target type is generic, its type arguments may come from other assemblies.
+         * Therefore, it is necessary to grant access to those assemblies as well.
+         */
+        foreach (var argumentType in type.GetGenericArguments())
+            assemblyContext.IgnoreAccessChecksToAssembly(argumentType.Assembly);
+
         return new ConstructorInjector(type, functor);
     }
 
@@ -78,7 +90,7 @@ public partial class ConstructorInjector
         code.MethodReturn();
 
         typeContext.Build();
-        
+
         return typeContext.BuildingType;
     }
 

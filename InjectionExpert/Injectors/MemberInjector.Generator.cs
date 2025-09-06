@@ -22,6 +22,17 @@ public partial class MemberInjector
             .GetMethod("TryInject")!
             .CreateDelegate<Func<object, IInjectionProvider, bool, InjectionTarget?>>();
 
+        if (!type.IsGenericType)
+            return new MemberInjector(type, functor, injections);
+
+        /* Note:
+         * The dynamic assembly is granted access to non-public members of the target type's assembly,
+         * however, if the target type is generic, its type arguments may come from other assemblies.
+         * Therefore, it is necessary to grant access to those assemblies as well.
+         */
+        foreach (var argumentType in type.GetGenericArguments())
+            assemblyContext.IgnoreAccessChecksToAssembly(argumentType.Assembly);
+
         return new MemberInjector(type, functor, injections);
     }
 
@@ -132,7 +143,7 @@ public partial class MemberInjector
         }
 
         var labelReturn = code.DefineLabel();
-        
+
         // If `this` is a boxed value type, then the modified result in the local variable should be copied back.
         if (type.IsValueType)
         {
@@ -159,7 +170,7 @@ public partial class MemberInjector
         code.MethodReturn();
 
         typeContext.Build();
-        
+
         return typeContext.BuildingType;
     }
 
@@ -177,7 +188,7 @@ public partial class MemberInjector
         var attribute = member.GetCustomAttribute<InjectionAttribute>();
         if (attribute?.Ignored == true)
             return false;
-        
+
         if (options?.WithRequiredMembers != false &&
             member.IsDefined(typeof(RequiredMemberAttribute)))
             return true;
@@ -235,12 +246,12 @@ public partial class MemberInjector
             code.LoadNull();
             code.Emit(OpCodes.Ceq);
         }
-        else if (field.FieldType.IsGenericType && 
+        else if (field.FieldType.IsGenericType &&
                  field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
             context.EmitLoadTarget();
             code.LoadFieldAddress(field);
-            
+
             code.NullableHasValue(field.FieldType.GetGenericArguments()[0]);
             code.LoadLiteral(false);
             code.Emit(OpCodes.Ceq);
@@ -284,18 +295,18 @@ public partial class MemberInjector
             code.LoadLiteral(true);
         }
     }
-    
+
     private static void EmitInjectField(in EmittingContext context, FieldInfo field)
     {
         var code = context.Code;
-        
+
         context.EmitLoadTarget();
-        
+
         code.LoadLocalAddress(context.VariableNullableInjection);
         code.NullableGetValue<InjectionItem>();
         code.ToAddress<InjectionItem>();
         code.LoadField(typeof(InjectionItem).GetField("Item1")!);
-        
+
         if (field.FieldType.IsValueType)
             code.Emit(OpCodes.Unbox_Any, field.FieldType);
         code.Emit(OpCodes.Stfld, field);
@@ -304,14 +315,14 @@ public partial class MemberInjector
     private static void EmitInjectProperty(in EmittingContext context, PropertyInfo property)
     {
         var code = context.Code;
-        
+
         context.EmitLoadTarget();
-        
+
         code.LoadLocalAddress(context.VariableNullableInjection);
         code.NullableGetValue<InjectionItem>();
         code.ToAddress<InjectionItem>();
         code.LoadField(typeof(InjectionItem).GetField("Item1")!);
-        
+
         if (property.PropertyType.IsValueType)
             code.Emit(OpCodes.Unbox_Any, property.PropertyType);
         code.Emit(property.SetMethod!.IsVirtual ? OpCodes.Callvirt : OpCodes.Call,
@@ -322,10 +333,13 @@ public partial class MemberInjector
     {
         public ILGenerator Code { get; } = code;
         public LocalBuilder VariableTarget { get; } = code.DeclareLocal(type);
+
         public LocalBuilder VariableNullableInjection { get; }
             = code.DeclareLocal(typeof(InjectionItem?));
+
         public LocalBuilder VariableLatestTarget { get; }
             = code.DeclareLocal(typeof(InjectionTarget));
+
         public LocalBuilder VariableMissingRequester { get; }
             = code.DeclareLocal(typeof(InjectionTarget?));
 
