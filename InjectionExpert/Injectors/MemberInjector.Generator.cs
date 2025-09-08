@@ -61,7 +61,7 @@ public partial class MemberInjector
         // Local variable to store the injection.
         var context = new EmittingContext(type, code);
 
-        code.LoadArgument0();
+        code.LoadArgument_0();
         if (type.IsValueType)
             code.Emit(OpCodes.Unbox_Any, type);
         code.StoreLocal(context.VariableTarget);
@@ -84,7 +84,7 @@ public partial class MemberInjector
             var labelInjection = code.DefineLabel();
 
             // Argument `onlyNullMembers`
-            code.LoadArgument2();
+            code.LoadArgument_2();
             code.GotoIfFalse(labelInjection);
 
             // Check if the member is null.
@@ -147,10 +147,10 @@ public partial class MemberInjector
         // If `this` is a boxed value type, then the modified result in the local variable should be copied back.
         if (type.IsValueType)
         {
-            code.LoadArgument0();
-            code.Call(typeof(Unsafe).GetMethod("Unbox")!.MakeGenericMethod(type));
-            code.LoadLocal(context.VariableTarget);
-            code.Emit(OpCodes.Stobj, type);
+            code.LoadArgument_0();
+            code.Unbox(type);
+            code.LoadLocalAddress(context.VariableTarget);
+            code.Emit(OpCodes.Cpobj, type);
         }
 
         // Construct a null missing requester.
@@ -201,21 +201,21 @@ public partial class MemberInjector
         var code = context.Code;
 
         // Load injection source.
-        code.Emit(OpCodes.Ldarg_1);
-        code.EmitTypeInfo(type);
+        code.LoadArgument_1();
+        code.LoadTypeInfo(type);
         code.LoadBoxedLiteral(key);
 
         // Load injection target.
-        code.LoadArgument0();
+        code.LoadArgument_0();
         code.LoadNull();
         code.LoadNull();
         switch (requester)
         {
             case FieldInfo field:
-                code.EmitFieldInfo(field);
+                code.LoadFieldInfo(field);
                 break;
             case PropertyInfo property:
-                code.EmitPropertyInfo(property);
+                code.LoadPropertyInfo(property);
                 break;
             default:
                 throw new Exception("Unsupported requester type.");

@@ -79,10 +79,10 @@ public partial class ConstructorInjector
 
         if (type.IsValueType)
         {
-            code.LoadArgument0();
-            code.Call(typeof(Unsafe).GetMethod("Unbox")!.MakeGenericMethod(type));
-            code.LoadLocal(context.VariableTarget);
-            code.Emit(OpCodes.Stobj, type);
+            code.LoadArgument_0();
+            code.Unbox(type);
+            code.LoadLocalAddress(context.VariableTarget);
+            code.Emit(OpCodes.Cpobj, type);
         }
 
         code.LoadLocal(context.VariableLatestTarget);
@@ -98,9 +98,8 @@ public partial class ConstructorInjector
     {
         var code = context.Code;
 
-        code.EmitConstructorInfo(constructor);
-        code.Emit(OpCodes.Callvirt,
-            typeof(MethodBase).GetMethod(nameof(MethodBase.GetParameters))!);
+        code.LoadConstructorInfo(constructor);
+        code.CallVirtual(typeof(MethodBase).GetMethod(nameof(MethodBase.GetParameters))!);
         code.StoreLocal(context.VariableParameters);
 
         var labelFailed = code.DefineLabel();
@@ -158,10 +157,10 @@ public partial class ConstructorInjector
 
         if (context.Type.IsValueType)
         {
-            code.LoadArgument0();
-            code.Call(typeof(Unsafe).GetMethod("Unbox")!.MakeGenericMethod(context.Type));
-            code.LoadLocal(context.VariableTarget);
-            code.Emit(OpCodes.Stobj, context.Type);
+            code.LoadArgument_0();
+            code.Unbox(context.Type);
+            code.LoadLocalAddress(context.VariableTarget);
+            code.Emit(OpCodes.Cpobj, context.Type);
         }
 
         code.LoadLocalAddress(context.VariableMissingRequester);
@@ -179,19 +178,19 @@ public partial class ConstructorInjector
         var code = context.Code;
 
         // Load injection source.
-        code.Emit(OpCodes.Ldarg_1);
+        code.LoadArgument_1();
 
         // Load injection type.
-        code.EmitTypeInfo(category);
+        code.LoadTypeInfo(category);
         // Load injection key.
         code.LoadBoxedLiteral(key);
 
         // Load injection target.
-        code.LoadArgument0();
+        code.LoadArgument_0();
         code.LoadNull();
         code.LoadLocal(context.VariableParameters);
         code.LoadLiteral(parameterIndex);
-        code.Emit(OpCodes.Ldelem_Ref);
+        code.LoadArrayElement_Class();
         code.LoadNull();
         code.NewObject(typeof(InjectionTarget).GetConstructor(
             [typeof(object), typeof(Type), typeof(ParameterInfo), typeof(MemberInfo)])!);
@@ -200,11 +199,11 @@ public partial class ConstructorInjector
         code.LoadLocal(context.VariableLatestTarget);
 
         // Query the container for specific injection.
-        code.Emit(OpCodes.Callvirt,
+        code.CallVirtual(
             typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjection))!);
 
         // Store the injection to the variable.
-        code.Emit(OpCodes.Stloc, context.NullableInjectionVariables[parameterIndex]);
+        code.StoreLocal(context.NullableInjectionVariables[parameterIndex]);
     }
 
     private readonly struct EmittingContext
@@ -234,9 +233,9 @@ public partial class ConstructorInjector
             VariableMissingRequester = code.DeclareLocal(typeof(InjectionTarget?));
             NullableInjectionVariables = (List<LocalBuilder>)[];
 
-            code.LoadArgument0();
+            code.LoadArgument_0();
             if (type.IsValueType)
-                code.Emit(OpCodes.Unbox_Any, type);
+                code.UnboxAny(type);
             code.StoreLocal(VariableTarget);
         }
 
