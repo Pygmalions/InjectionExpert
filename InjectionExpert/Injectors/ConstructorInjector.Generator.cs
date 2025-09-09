@@ -10,12 +10,12 @@ using InjectionItem = (object, InjectionLifespan);
 
 public partial class ConstructorInjector
 {
-    public static void Export(AssemblyBuildingContext assemblyContext, Type type)
+    public static void Export(DynamicAssembly assemblyContext, Type type)
     {
         GenerateInjector(assemblyContext, type);
     }
 
-    private static ConstructorInjector CreateInjector(AssemblyBuildingContext assemblyContext, Type type)
+    private static ConstructorInjector CreateInjector(DynamicAssembly assemblyContext, Type type)
     {
         var functor = GenerateInjector(assemblyContext, type)
             .GetMethod("TryInject")!
@@ -35,7 +35,7 @@ public partial class ConstructorInjector
         return new ConstructorInjector(type, functor);
     }
 
-    private static Type GenerateInjector(AssemblyBuildingContext assemblyContext, Type type)
+    private static Type GenerateInjector(DynamicAssembly assemblyContext, Type type)
     {
         if (type.IsPrimitive || type == typeof(string))
             throw new InvalidOperationException($"Cannot inject primitive type or string \"{type.Name}\".");
@@ -46,7 +46,7 @@ public partial class ConstructorInjector
 
         var typeContext = assemblyContext.DefineClass("ConstructorInjector_" + type);
 
-        var methodContext = typeContext.Functors.Static("TryInject",
+        var methodContext = typeContext.FunctorBuilder.DefineStatic("TryInject",
             [
                 ParameterDefinition.Value<object>("target"),
                 ParameterDefinition.Value<IInjectionProvider>("provider")

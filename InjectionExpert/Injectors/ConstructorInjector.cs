@@ -7,7 +7,7 @@ namespace InjectionExpert.Injectors;
 [RequiresDynamicCode("`System.Reflection.Emit` is used in this class.")]
 public partial class ConstructorInjector
 {
-    private static readonly DynamicTypeCache<ConstructorInjector>
+    private static readonly DynamicResourceCacheForType<ConstructorInjector>
         Cache = new(CreateInjector, moduleNamePrefix: "GeneratedConstructorInjectors_");
 
     public static ConstructorInjector For(Type type) => Cache[type];

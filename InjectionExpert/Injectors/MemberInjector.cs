@@ -8,7 +8,7 @@ namespace InjectionExpert.Injectors;
 [RequiresDynamicCode("`System.Reflection.Emit` is used in this class.")]
 public partial class MemberInjector
 {
-    private static readonly DynamicTypeCache<MemberInjector>
+    private static readonly DynamicResourceCacheForType<MemberInjector>
         Cache = new(CreateInjector, moduleNamePrefix: "GeneratedMemberInjectors_");
 
     /// <summary>

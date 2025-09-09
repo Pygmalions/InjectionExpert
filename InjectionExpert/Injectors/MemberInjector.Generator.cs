@@ -11,12 +11,12 @@ using InjectionItem = (object, InjectionLifespan);
 
 public partial class MemberInjector
 {
-    public static void Export(AssemblyBuildingContext assemblyContext, Type type)
+    public static void Export(DynamicAssembly assemblyContext, Type type)
     {
         GenerateInjector(assemblyContext, type, out _);
     }
 
-    private static MemberInjector CreateInjector(AssemblyBuildingContext assemblyContext, Type type)
+    private static MemberInjector CreateInjector(DynamicAssembly assemblyContext, Type type)
     {
         var functor = GenerateInjector(assemblyContext, type, out var injections)
             .GetMethod("TryInject")!
@@ -36,7 +36,7 @@ public partial class MemberInjector
         return new MemberInjector(type, functor, injections);
     }
 
-    private static Type GenerateInjector(AssemblyBuildingContext assemblyContext, Type type,
+    private static Type GenerateInjector(DynamicAssembly assemblyContext, Type type,
         out MultiDictionary<(Type Type, object? Key), MemberInfo> injections)
     {
         if (type.IsPrimitive || type == typeof(string))
@@ -48,7 +48,7 @@ public partial class MemberInjector
 
         injections = new MultiDictionary<(Type Type, object? Key), MemberInfo>();
 
-        var methodContext = typeContext.Functors.Static("TryInject",
+        var methodContext = typeContext.FunctorBuilder.DefineStatic("TryInject",
             [
                 ParameterDefinition.Value<object>("target"),
                 ParameterDefinition.Value<IInjectionProvider>("provider"),
