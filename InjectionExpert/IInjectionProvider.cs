@@ -37,30 +37,4 @@ public interface IInjectionProvider
     /// <returns>Provider for the new injection scope.</returns>
     [MustDisposeResource]
     IScope NewScope(InjectionTarget target = default);
-
-    /// <summary>
-    /// Create a new injection provider from a functor.
-    /// </summary>
-    /// <param name="provider">Factory functor.</param>
-    /// <param name="cachingSingletons">
-    /// If true, the provider will cache singleton injections,
-    /// and the cached instances will be return for subsequent requests;
-    /// otherwise, the factory will be called every time the injection is requested.
-    /// </param>
-    /// <returns>Injection provider created that wraps the specified functor.</returns>
-    public static FunctorInjectionProvider FromFunctor(
-        FunctorInjectionProvider.ProviderDelegate provider, bool cachingSingletons = true)
-        => new(provider, cachingSingletons);
-
-    /// <summary>
-    /// Create a new injection provider from a sequence of providers.
-    /// The providers will be queried in order until one of them returns a non-null injection.
-    /// </summary>
-    /// <param name="providers">
-    /// Providers to concatenate in sequence;
-    /// This sequence will be enumerated every time an injection is requested.
-    /// </param>
-    /// <returns>Injection provider that queries the specified sequence of providers.</returns>
-    public static ChainedInjectionProvider FromMultiple(params IEnumerable<IInjectionProvider?> providers)
-        => new(providers);
 }

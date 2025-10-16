@@ -43,22 +43,22 @@ public partial class MemberInjector
         return For(typeof(TTarget)).TryInject(target, provider, out missing, onlyNullMembers);
     }
 
-    private readonly Type _type;
+    private readonly MultiDictionary<(Type Type, object? Key), MemberInfo> _dependencies;
 
-    private readonly MultiDictionary<(Type Type, object? Key), MemberInfo> _injections;
-
-    public IEnumerable<(Type Type, object? Key, MemberInfo Member)> Dependencies
-        => _injections.SelectMany(pair => pair.Value.Select(member => (pair.Key.Type, pair.Key.Key, member)));
-    
     private readonly Func<object, IInjectionProvider, bool, InjectionTarget?> _functor;
-
+    
+    public Type TargetType { get; }
+    
+    public IEnumerable<(Type Type, object? Key, MemberInfo Member)> Dependencies
+        => _dependencies.SelectMany(pair => pair.Value.Select(member => (pair.Key.Type, pair.Key.Key, member)));
+    
     private MemberInjector(
         Type type, Func<object, IInjectionProvider, bool, InjectionTarget?> functor,
-        MultiDictionary<(Type Type, object? Key), MemberInfo> injections)
+        MultiDictionary<(Type Type, object? Key), MemberInfo> dependencies)
     {
-        _type = type;
+        TargetType = type;
         _functor = functor;
-        _injections = injections;
+        _dependencies = dependencies;
     }
 
     /// <summary>
@@ -102,29 +102,37 @@ public partial class MemberInjector
     /// <param name="type">Injection type.</param>
     /// <param name="key">Key for the injection.</param>
     /// <param name="injection">Injection instance.</param>
+    /// <param name="onlyNullMembers">If true, only null members will be updated to the new value.</param>
     /// <returns>
     /// True if the members with specified type of injections are updated;
     /// false if no member is injected with the specified type.
     /// </returns>
-    public bool TryUpdate(object target, Type type, object? key, object? injection)
+    public bool TryUpdate(object target, Type type, object? key, object? injection, 
+        bool onlyNullMembers = false)
     {
-        if (!_injections.TryGetValues((type, key), out var members))
+        if (!_dependencies.TryGetValues((type, key), out var members))
             return false;
+        var updated = false;
         foreach (var member in members)
         {
             switch (member)
             {
                 case FieldInfo field:
+                    if (onlyNullMembers && field.GetValue(target) != null)
+                        break;
                     field.SetValue(target, injection);
+                    updated = true;
                     break;
                 case PropertyInfo property:
+                    if (onlyNullMembers && property.GetValue(target) != null)
+                        break;
                     property.SetValue(target, injection);
+                    updated = true;
                     break;
                 default:
                     throw new Exception("Unsupported injection member type \"{member.MemberType}\".");
             }
         }
-
-        return true;
+        return updated;
     }
 }

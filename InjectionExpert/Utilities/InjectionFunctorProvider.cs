@@ -11,8 +11,8 @@ namespace InjectionExpert.Utilities;
 /// and return the cached instance for subsequent requests.
 /// If false, the factory will be called for every request.
 /// </param>
-public class FunctorInjectionProvider(
-    FunctorInjectionProvider.ProviderDelegate provider, bool cachingSingletons = true) 
+public class InjectionFunctorProvider(
+    InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons = true) 
     : IInjectionProvider
 {
     /// <summary>
@@ -43,4 +43,24 @@ public class FunctorInjectionProvider(
 
     public IInjectionProvider.IScope NewScope(InjectionTarget target) =>
         InjectionScope.New(this, null, target);
+}
+
+public static class InjectionFunctorProviderExtensions
+{
+    extension(IInjectionProvider)
+    {
+        /// <summary>
+        /// Create a new injection provider from a functor.
+        /// </summary>
+        /// <param name="provider">Factory functor.</param>
+        /// <param name="cachingSingletons">
+        /// If true, the provider will cache singleton injections,
+        /// and the cached instances will be return for subsequent requests;
+        /// otherwise, the factory will be called every time the injection is requested.
+        /// </param>
+        /// <returns>Injection provider created that wraps the specified functor.</returns>
+        public static InjectionFunctorProvider FromFunctor(
+            InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons = true)
+            => new(provider, cachingSingletons);
+    }
 }

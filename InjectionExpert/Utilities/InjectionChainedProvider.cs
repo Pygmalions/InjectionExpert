@@ -9,7 +9,7 @@ namespace InjectionExpert.Utilities;
 /// Providers to chained together.
 /// This enumerable sequence will be enumerated for each injection request.
 /// </param>
-public class ChainedInjectionProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
+public class InjectionChainedProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
 {
     public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
     {
@@ -24,4 +24,22 @@ public class ChainedInjectionProvider(IEnumerable<IInjectionProvider?> providers
 
     public IInjectionProvider.IScope NewScope(InjectionTarget target) =>
         InjectionScope.New(this, null, target);
+}
+
+public static class InjectionChainedProviderExtensions
+{
+    extension(IInjectionProvider)
+    {
+        /// <summary>
+        /// Create a new injection provider from a sequence of providers.
+        /// The providers will be queried in order until one of them returns a non-null injection.
+        /// </summary>
+        /// <param name="providers">
+        /// Providers to concatenate in sequence;
+        /// This sequence will be enumerated every time an injection is requested.
+        /// </param>
+        /// <returns>Injection provider that queries the specified sequence of providers.</returns>
+        public static InjectionChainedProvider FromMultiple(params IEnumerable<IInjectionProvider?> providers)
+            => new(providers);
+    }
 }
