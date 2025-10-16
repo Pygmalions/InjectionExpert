@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using InjectionExpert.Utilities;
-using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert;
 

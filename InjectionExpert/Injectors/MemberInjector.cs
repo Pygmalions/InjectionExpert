@@ -14,34 +14,9 @@ public partial class MemberInjector
     /// <summary>
     /// Get the member injector for the specified type.
     /// </summary>
-    /// <param name="type">Type to get the member injector for.</param>
-    /// <returns>Member injector.</returns>
+    /// <param name="type">Type of the instances to inject.</param>
+    /// <returns>Member injector for the specified type.</returns>
     public static MemberInjector For(Type type) => Cache[type];
-    
-    /// <summary>
-    /// Inject the members of the specified object.
-    /// If the specified object is a boxed struct, then the boxed value will be replaced.
-    /// </summary>
-    /// <param name="target">Target to inject.</param>
-    /// <param name="provider">Provider to get injections from.</param>
-    /// <param name="missing">
-    /// The requester whose injection requirement cannot be satisfied.
-    /// It will be the default value if this method returns true.
-    /// </param>
-    /// <param name="onlyNullMembers">
-    /// If true, the injector will not inject not null members.
-    /// Value types without <see cref="Nullable{T}"/> will always be injected. 
-    /// </param>
-    /// <returns>
-    /// True if all required injections of the specified object are found and injected,
-    /// otherwise false.
-    /// </returns>
-    public static bool TryInject<TTarget>(
-        TTarget target, IInjectionProvider provider, out InjectionTarget missing,
-        bool onlyNullMembers = false) where TTarget : notnull
-    {
-        return For(typeof(TTarget)).TryInject(target, provider, out missing, onlyNullMembers);
-    }
 
     private readonly MultiDictionary<(Type Type, object? Key), MemberInfo> _dependencies;
 
