@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using EmitToolbox.Extensions;
 using EmitToolbox.Framework;
 
@@ -186,21 +185,19 @@ public partial class ConstructorInjector
         code.LoadBoxedLiteral(key);
 
         // Load injection target.
-        code.LoadArgument_0();
-        code.LoadNull();
         code.LoadLocal(context.VariableParameters);
         code.LoadLiteral(parameterIndex);
         code.LoadArrayElement_Class();
-        code.LoadNull();
+        code.LoadArgument_0();
         code.NewObject(typeof(InjectionTarget).GetConstructor(
-            [typeof(object), typeof(Type), typeof(ParameterInfo), typeof(MemberInfo)])!);
+            [typeof(ParameterInfo), typeof(object)])!);
         code.StoreLocal(context.VariableLatestTarget);
 
         code.LoadLocal(context.VariableLatestTarget);
 
         // Query the container for specific injection.
         code.CallVirtual(
-            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjection))!);
+            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjectionItem))!);
 
         // Store the injection to the variable.
         code.StoreLocal(context.NullableInjectionVariables[parameterIndex]);

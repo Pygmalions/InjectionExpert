@@ -34,17 +34,17 @@ public class TestConstructorInjector
 
         var target = (StubOneConstructorInjectionClass?)instance;
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.True);
             Assert.That(target, Is.Not.Null);
-        });
-        Assert.Multiple(() =>
+        }
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(target.Text, Is.EqualTo("Sample"));
             Assert.That(target.Number, Is.EqualTo(1));
             Assert.That(target.Value, Is.EqualTo(0.5));
-        });
+        }
     }
 
     private class StubTwoConstructorInjectionClass(string text, int number, int value)
@@ -72,17 +72,17 @@ public class TestConstructorInjector
             .TryInject(out var instance, container, out _);
         var target = (StubTwoConstructorInjectionClass?)instance;
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.True);
             Assert.That(target, Is.Not.Null);
-        });
-        Assert.Multiple(() =>
+        }
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(target.Text, Is.EqualTo(string.Empty));
             Assert.That(target.Number, Is.EqualTo(1));
             Assert.That(target.Value, Is.EqualTo(3));
-        });
+        }
     }
 
     [Test]
@@ -96,11 +96,11 @@ public class TestConstructorInjector
 
         var target = (StubOneConstructorInjectionClass?)instance;
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.False);
             Assert.That(target, Is.Null);
-        });
+        }
     }
 
     private struct StubOneConstructorInjectionStruct(string text, int number, double value)
@@ -124,12 +124,12 @@ public class TestConstructorInjector
         var target = (StubOneConstructorInjectionStruct)instance!;
 
         Assert.That(succeeded, Is.True);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(target.Text, Is.EqualTo("Sample"));
             Assert.That(target.Number, Is.EqualTo(1));
             Assert.That(target.Value, Is.EqualTo(0.5));
-        });
+        }
     }
 
     private struct StubTwoConstructorInjectionStruct(string text, int number, int value)
@@ -157,12 +157,12 @@ public class TestConstructorInjector
         var target = (StubTwoConstructorInjectionStruct)instance!;
 
         Assert.That(succeeded, Is.True);
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(target.Text, Is.EqualTo(string.Empty));
             Assert.That(target.Number, Is.EqualTo(1));
             Assert.That(target.Value, Is.EqualTo(3));
-        });
+        }
     }
 
     [Test]
@@ -177,11 +177,11 @@ public class TestConstructorInjector
 
         var target = (StubOneConstructorInjectionStruct?)instance!;
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.False);
             Assert.That(target, Is.Null);
-        });
+        }
     }
 
     [DynamicallyAccessedMembers(
@@ -203,13 +203,13 @@ public class TestConstructorInjector
             .TryInject(out var instance, container, out _);
         
         var target = (StubWithDefaultArguments?)instance;
-        
-        Assert.Multiple(() =>
+
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.True);
             Assert.That(target?.Integer, Is.EqualTo(1));
             Assert.That(target?.Floating, Is.EqualTo(double.Pi));
-        });
+        }
     }
 
     [Test]
@@ -233,13 +233,13 @@ public class TestConstructorInjector
             .TryInject(out var instance, container, out _);
 
         var target = (StubWithDefaultArguments?)instance;
-        
-        Assert.Multiple(() =>
+
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.True);
             Assert.That(target?.Integer, Is.EqualTo(1));
             Assert.That(target?.Floating, Is.EqualTo(0.5));
-        });
+        }
     }
 
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields |
@@ -269,7 +269,6 @@ public class TestConstructorInjector
     private class StubWithKeys([Injection(Key = 1)] string key1, [Injection(Key = 2)] string key2)
     {
         public string Key1 = key1;
-
         public string Key2 = key2;
     }
 
@@ -284,12 +283,12 @@ public class TestConstructorInjector
             .TryInject(out var instance, container, out _);
 
         var target = (StubWithKeys?)instance;
-        
-        Assert.Multiple(() =>
+
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(succeeded, Is.True);
             Assert.That(target?.Key1, Is.EqualTo("Value1"));
             Assert.That(target?.Key2, Is.EqualTo("Value2"));
-        });
+        }
     }
 }

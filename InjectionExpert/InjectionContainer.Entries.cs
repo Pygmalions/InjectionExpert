@@ -104,6 +104,6 @@ public partial class InjectionContainer
         public object? TargetKey { get; } = targetKey;
 
         public override object GetValue(Type type, InjectionTarget target)
-            => provider.GetInjection(TargetType, TargetKey, target)!;
+            => provider.GetInjectionItem(TargetType, TargetKey, target)!;
     }
 }

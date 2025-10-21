@@ -72,7 +72,7 @@ public partial class MemberInjector
 
         foreach (var member in type
                      .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                     .Where(candidate => IsInjectionTarget(candidate, options)))
+                     .Where(candidate => ShouldBeInjected(candidate, options)))
         {
             var attribute = member.GetCustomAttribute<InjectionAttribute>();
             var required = member.IsDefined(typeof(RequiredMemberAttribute));
@@ -174,7 +174,7 @@ public partial class MemberInjector
         return typeContext.BuildingType;
     }
 
-    private static bool IsInjectionTarget(MemberInfo member, InjectionOptionsAttribute? options)
+    private static bool ShouldBeInjected(MemberInfo member, InjectionOptionsAttribute? options)
     {
         switch (member)
         {
@@ -206,9 +206,6 @@ public partial class MemberInjector
         code.LoadBoxedLiteral(key);
 
         // Load injection target.
-        code.LoadArgument_0();
-        code.LoadNull();
-        code.LoadNull();
         switch (requester)
         {
             case FieldInfo field:
@@ -220,16 +217,16 @@ public partial class MemberInjector
             default:
                 throw new Exception("Unsupported requester type.");
         }
-
+        code.LoadArgument_0();
         code.NewObject(typeof(InjectionTarget).GetConstructor(
-            [typeof(object), typeof(Type), typeof(ParameterInfo), typeof(MemberInfo)])!);
+            [typeof(MemberInfo), typeof(object)])!);
         code.StoreLocal(context.VariableLatestTarget);
 
         code.LoadLocal(context.VariableLatestTarget);
 
         // Query the container for specific injection.
         code.Emit(OpCodes.Callvirt,
-            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjection))!);
+            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjectionItem))!);
 
         // Store the injection to the variable.
         code.StoreLocal(context.VariableNullableInjection);

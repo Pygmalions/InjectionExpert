@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace InjectionExpert.Utilities;
 
 /// <summary>
@@ -11,11 +13,11 @@ namespace InjectionExpert.Utilities;
 /// </param>
 public class InjectionChainedProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
 {
-    public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
+    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
     {
         foreach (var provider in providers)
         {
-            var entry = provider?.GetInjection(type, key, target);
+            var entry = provider?.GetInjectionItem(type, key, target);
             if (entry != null)
                 return entry;
         }

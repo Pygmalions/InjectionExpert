@@ -22,7 +22,7 @@ public class InjectionFunctorProvider(
     
     public delegate InjectionItem? ProviderDelegate(Type type, object? key, InjectionTarget target);
 
-    public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
+    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
     {
         if (!cachingSingletons)
             return provider(type, key, target);

@@ -1,9 +1,11 @@
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
 namespace InjectionExpert.Utilities.Internal;
 
-internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue>
+internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> : 
+    IEnumerable<(TPrimaryKey PrimaryKey, TSecondaryKey SecondaryKey, TValue Value)>
     where TPrimaryKey : notnull
     where TSecondaryKey : notnull
     where TValue : notnull
@@ -163,5 +165,18 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue>
 
         dictionary = null;
         return false;
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public IEnumerator<(TPrimaryKey PrimaryKey, TSecondaryKey SecondaryKey, TValue Value)> GetEnumerator()
+    {
+        foreach (var (primaryKey, secondaryDictionary) in _dictionaries)
+        {
+            foreach (var (secondaryKey, value) in secondaryDictionary)
+            {
+                yield return (primaryKey, secondaryKey, value);
+            }
+        }
     }
 }

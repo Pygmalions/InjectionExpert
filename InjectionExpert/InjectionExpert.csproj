@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>0.3.0-dev10161638</Version>
+        <Version>0.3.0-dev10212010</Version>
         <Title>Injection Expert</Title>
         <Authors>Pygmalions</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -22,9 +22,9 @@
     </ItemGroup>
     
     <ItemGroup>
-      <PackageReference Include="EmitToolbox" Version="0.3.0-dev09102111">
-        <PrivateAssets>all</PrivateAssets>
-      </PackageReference>
+      <PackageReference Include="EmitToolbox" Version="0.3.0-dev09102111" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.10" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
     </ItemGroup>
     
     <Target Name="InjectPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec" Condition="Exists('RELEASE_NOTE.txt')">

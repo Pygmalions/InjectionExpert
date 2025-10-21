@@ -23,7 +23,7 @@ public class InjectionScope : IInjectionProvider.IScope
 
     public IInjectionProvider.IScope? Parent => _parent;
 
-    public InjectionItem? GetInjection(Type type, object? key, InjectionTarget target)
+    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
     {
         if (_provider == null)
             throw new ObjectDisposedException(nameof(InjectionScope),
@@ -38,7 +38,7 @@ public class InjectionScope : IInjectionProvider.IScope
                 return new InjectionItem(value, InjectionLifespan.Scoped);
         }
 
-        var entry = _provider.GetInjection(type, key, target);
+        var entry = _provider.GetInjectionItem(type, key, target);
         if (entry?.Lifespan == InjectionLifespan.Scoped)
             _scoped.SetValue(type, replacedKey, entry.Value);
         return entry;
