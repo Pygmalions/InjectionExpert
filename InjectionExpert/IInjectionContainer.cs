@@ -13,26 +13,26 @@ public interface IInjectionContainer : IInjectionProvider
     /// when the category type is a generic type definition, requested type is different from category type 
     /// </param>
     public delegate object FactoryDelegate(IInjectionProvider provider, Type type, InjectionTarget target);
-    
+
     /// <summary>
     /// Add an implementation type for the specified category type in the container.
     /// </summary>
+    /// <param name="lifespan">Lifespan of the injected instances.</param>
     /// <param name="type">Category type to register.</param>
     /// <param name="implementation">Implementation type to instantiate for the injection requests.</param>
-    /// <param name="lifespan">Lifespan of the injected instances.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     [EditorBrowsable(EditorBrowsableState.Advanced)]
-    void AddInjection(Type type, Type implementation, InjectionLifespan lifespan, object? key = null);
+    void AddInjection(InjectionLifespan lifespan, Type type, Type implementation, object? key = null);
 
     /// <summary>
     /// Registers a factory method for creating instances of the specified category type in the container.
     /// </summary>
+    /// <param name="lifespan">Lifespan of the injected instances.</param>
     /// <param name="type">Category type to register.</param>
     /// <param name="factory">Factory method that creates instances.</param>
-    /// <param name="lifespan">Lifespan of the injected instances.</param>
     /// <param name="key">Optional key to distinguish this injection.</param>
     [EditorBrowsable(EditorBrowsableState.Advanced)]
-    void AddInjection(Type type, FactoryDelegate factory, InjectionLifespan lifespan, object? key = null);
+    void AddInjection(InjectionLifespan lifespan, Type type, FactoryDelegate factory, object? key = null);
 
     /// <summary>
     /// Registers a specific instance for the given category type in the container.

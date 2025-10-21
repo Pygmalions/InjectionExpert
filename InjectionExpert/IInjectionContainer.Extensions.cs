@@ -34,7 +34,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddTransient(this IInjectionContainer container,
         Type type, Type implementation, object? key = null)
     {
-        container.AddInjection(type, implementation, InjectionLifespan.Transient, key);
+        container.AddInjection(InjectionLifespan.Transient, type, implementation, key);
         return container;
     }
 
@@ -48,7 +48,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddTransient<TImplementation>(this IInjectionContainer container,
         object? key = null)
     {
-        container.AddInjection(typeof(TImplementation), typeof(TImplementation), InjectionLifespan.Transient, key);
+        container.AddInjection(InjectionLifespan.Transient, typeof(TImplementation), typeof(TImplementation), key);
         return container;
     }
 
@@ -64,8 +64,7 @@ public static class InjectionContainerExtensions
         TypedFactoryDelegate<TInjection> factory, object? key = null)
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), 
-            WrapToUntypedFactory(factory), InjectionLifespan.Transient, key);
+        container.AddInjection(InjectionLifespan.Transient, typeof(TInjection), WrapToUntypedFactory(factory), key);
         return container;
     }
 
@@ -80,7 +79,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddScoped(this IInjectionContainer container,
         Type type, Type implementation, object? key = null)
     {
-        container.AddInjection(type, implementation, InjectionLifespan.Scoped, key);
+        container.AddInjection(InjectionLifespan.Scoped, type, implementation, key);
         return container;
     }
 
@@ -94,8 +93,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddScoped<TImplementation>(
         this IInjectionContainer container, object? key = null)
     {
-        container.AddInjection(typeof(TImplementation), typeof(TImplementation),
-            InjectionLifespan.Scoped, key);
+        container.AddInjection(InjectionLifespan.Scoped, typeof(TImplementation), typeof(TImplementation), key);
         return container;
     }
 
@@ -111,7 +109,7 @@ public static class InjectionContainerExtensions
         TypedFactoryDelegate<TInjection> factory, object? key = null)
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), WrapToUntypedFactory(factory), InjectionLifespan.Scoped, key);
+        container.AddInjection(InjectionLifespan.Scoped, typeof(TInjection), WrapToUntypedFactory(factory), key);
         return container;
     }
 
@@ -126,7 +124,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddSingleton(this IInjectionContainer container,
         Type type, Type implementation, object? key = null)
     {
-        container.AddInjection(type, implementation, InjectionLifespan.Singleton, key);
+        container.AddInjection(InjectionLifespan.Singleton, type, implementation, key);
         return container;
     }
 
@@ -140,7 +138,7 @@ public static class InjectionContainerExtensions
     public static IInjectionContainer AddSingleton<TImplementation>(
         this IInjectionContainer container, object? key = null)
     {
-        container.AddInjection(typeof(TImplementation), typeof(TImplementation), InjectionLifespan.Singleton, key);
+        container.AddInjection(InjectionLifespan.Singleton, typeof(TImplementation), typeof(TImplementation), key);
         return container;
     }
 
@@ -156,7 +154,7 @@ public static class InjectionContainerExtensions
         TypedFactoryDelegate<TInjection> factory, object? key = null) 
         where TInjection : class
     {
-        container.AddInjection(typeof(TInjection), WrapToUntypedFactory(factory), InjectionLifespan.Singleton, key);
+        container.AddInjection(InjectionLifespan.Singleton, typeof(TInjection), WrapToUntypedFactory(factory), key);
         return container;
     }
 
