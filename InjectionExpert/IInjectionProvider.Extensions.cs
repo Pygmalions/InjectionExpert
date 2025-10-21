@@ -9,37 +9,65 @@ public static class InjectionProviderExtensions
     extension(IInjectionProvider provider)
     {
         /// <summary>
-        /// Get a resource of the specified category for this provider.
+        /// Get an injection of the specified category for this provider.
         /// </summary>
-        /// <param name="type">Category type of the resource.</param>
+        /// <param name="type">Type of the injection.</param>
         /// <param name="key">Optional key for the requested injection.</param>
-        /// <returns>Requested resource, or null if not found.</returns>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>Requested injection, or null if not found.</returns>
         [DebuggerStepThrough, StackTraceHidden]
-        public object? GetInjection(Type type, object? key = null)
-            => provider.GetInjection(type, key, default)?.Instance;
+        public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
+            => provider.GetInjectionItem(type, key, target)?.Instance;
 
         /// <summary>
-        /// Get a resource of the specified category for this provider.
+        /// Get an injection of the specified category for this provider.
         /// </summary>
-        /// <typeparam name="TObject">Category type of the resource.</typeparam>
+        /// <typeparam name="TObject">Type of the injection.</typeparam>
         /// <param name="key">Optional key for the requested injection.</param>
-        /// <returns>Requested resource, or null if not found.</returns>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>Requested injection, or null if not found.</returns>
         [DebuggerStepThrough, StackTraceHidden]
-        public TObject? GetInjection<TObject>(object? key = null)
-            => (TObject?)provider.GetInjection(typeof(TObject), key);
+        public TObject? GetInjection<TObject>(object? key = null, InjectionTarget target = default)
+            => (TObject?)provider.GetInjectionItem(typeof(TObject), key, target)?.Instance;
 
-        public object RequireInjection(Type type, object? key = null)
-            => provider.GetInjection(type, key) ??
+        /// <summary>
+        /// Get an injection of the specified category for this provider,
+        /// or throw an exception if not found.
+        /// </summary>
+        /// <param name="type">Type of the injection.</param>
+        /// <param name="key">Optional key for the requested injection.</param>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>Requested injection.</returns>
+        /// <exception cref="Exception">Throw if the requested injection is not found.</exception>
+        public object RequireInjection(Type type, object? key = null, InjectionTarget target = default)
+            => provider.GetInjectionItem(type, key, target) ??
                throw new Exception($"Failed to find required injection '{type.Name}' with key '{key}'");
 
-        public TObject RequireInjection<TObject>(object? key = null)
-            => (TObject?)provider.GetInjection(typeof(TObject), key) ??
+        /// <summary>
+        /// Get an injection of the specified category for this provider,
+        /// or throw an exception if not found.
+        /// </summary>
+        /// <typeparam name="TObject">Type of the injection.</typeparam>
+        /// <param name="key">Optional key for the requested injection.</param>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>Requested injection.</returns>
+        /// <exception cref="Exception">Throw if the requested injection is not found.</exception>
+        public TObject RequireInjection<TObject>(object? key = null, InjectionTarget target = default)
+            => (TObject?)provider.GetInjection(typeof(TObject), key, target) ??
                throw new Exception($"Failed to find required injection '{typeof(TObject).Name}' with key '{key}'");
 
+        /// <summary>
+        /// Re-instantiate an object and inject all required dependencies.
+        /// </summary>
+        /// <param name="target">Target instance to re-construct.</param>
+        /// <returns>Instantiated object instance.</returns>
+        /// <exception cref="InjectionFailureException">
+        /// Throw if any required injections cannot be found within the specified provider.
+        /// </exception>
         [EditorBrowsable(EditorBrowsableState.Advanced)]
         public void NewObject(object target)
         {
-            using var scope = provider.NewScope(new InjectionTarget(Instance: target));
+            using var scope = provider.NewScope(new InjectionTarget(target));
 
             var type = target.GetType();
             if (!ConstructorInjector.For(type).TryInject(target, scope, out var missing) ||
@@ -57,7 +85,7 @@ public static class InjectionProviderExtensions
         /// </exception>
         public object NewObject(Type type)
         {
-            using var scope = provider.NewScope(new InjectionTarget(Type: type));
+            using var scope = provider.NewScope(new InjectionTarget(type));
 
             if (!ConstructorInjector.For(type).TryInject(out var instance, scope, out var missing) ||
                 !MemberInjector.For(type).TryInject(instance, scope, out missing))
@@ -75,8 +103,7 @@ public static class InjectionProviderExtensions
         /// </exception>
         public TObject NewObject<TObject>()
         {
-            using var scope = provider.NewScope(new InjectionTarget(Type: typeof(TObject)));
-
+            using var scope = provider.NewScope(new InjectionTarget(typeof(TObject)));
             return (TObject)scope.NewObject(typeof(TObject));
         }
     }
@@ -98,7 +125,7 @@ public static class InjectionProviderExtensions
         /// </exception>
         public TTarget Autowire(IInjectionProvider provider, bool onlyNullMembers = true)
         {
-            using var scope = provider.NewScope(new InjectionTarget(Instance: target));
+            using var scope = provider.NewScope(new InjectionTarget(target));
 
             // Get the actual type of the target object, in case TTarget is a base class of it.
             var type = target.GetType();

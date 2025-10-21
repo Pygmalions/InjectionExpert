@@ -1,4 +1,3 @@
-using InjectionExpert.Utilities;
 using JetBrains.Annotations;
 
 namespace InjectionExpert;
@@ -6,13 +5,13 @@ namespace InjectionExpert;
 public interface IInjectionProvider
 {
     /// <summary>
-    /// Get an injection for the specified category type.
+    /// Search an injection item for the specified category type.
     /// </summary>
     /// <param name="type">Category type to request.</param>
     /// <param name="key">An optional key to differentiate injection items.</param>
     /// <param name="target">Information about the injection target which requests this injection.</param>
     /// <returns>Injection with the specified category and key, or null if not found.</returns>
-    InjectionItem? GetInjection(Type type, object? key, InjectionTarget target);
+    InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target);
 
     /// <summary>
     /// Scope can manage injections with <see cref="InjectionLifespan.Scoped"/> lifespan.
