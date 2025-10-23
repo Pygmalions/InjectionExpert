@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Utilities;
@@ -16,9 +17,14 @@ public class InjectionFunctorProvider(
     : IInjectionProvider
 {
     /// <summary>
-    /// Caches for singleton injections.
+    /// Cache for keyed singleton injections.
     /// </summary>
-    private ConcurrentKeyedDictionary<Type, object, object>? _singletons;
+    private ConcurrentKeyedDictionary<Type, object, object>? _cachedKeyedSingletons;
+
+    /// <summary>
+    /// Cache for unkeyed singleton injections.
+    /// </summary>
+    private ConcurrentDictionary<Type, object>? _cachedUnkeyedSingletons;
     
     public delegate InjectionItem? ProviderDelegate(Type type, object? key, InjectionTarget target);
 
@@ -26,18 +32,33 @@ public class InjectionFunctorProvider(
     {
         if (!cachingSingletons)
             return provider(type, key, target);
-        
-        if (_singletons != null 
-            && _singletons.TryGetValue(type, key ?? InjectionContainer.NullKey.Value, out var value))
-            return (value, InjectionLifespan.Singleton);
+
+        if (key is null)
+        {
+            if (_cachedUnkeyedSingletons?.TryGetValue(type, out var value) == true)
+                return new InjectionItem(value, InjectionLifespan.Singleton);
+        }
+        else
+        {
+            if (_cachedKeyedSingletons?.TryGetValue(type, key, out var value) == true)
+                return new InjectionItem(value, InjectionLifespan.Singleton);
+        }
         var entry = provider(type, key, target);
         if (entry == null) 
             return null;
         if (entry.Value.Lifespan != InjectionLifespan.Singleton) 
             return entry;
         // Cache the singleton instance.
-        _singletons ??= new ConcurrentKeyedDictionary<Type, object, object>();
-        _singletons.SetValue(type, key ?? InjectionContainer.NullKey.Value, entry.Value.Instance);
+        if (key is null)
+        {
+            _cachedUnkeyedSingletons ??= new ConcurrentDictionary<Type, object>();
+            _cachedUnkeyedSingletons[type] = entry.Value.Instance;
+        }
+        else
+        {
+            _cachedKeyedSingletons ??= new ConcurrentKeyedDictionary<Type, object, object>();
+            _cachedKeyedSingletons.SetValue(type, key, entry.Value.Instance);
+        }
         return entry;
     }
 

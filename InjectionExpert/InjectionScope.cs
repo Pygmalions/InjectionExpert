@@ -1,17 +1,20 @@
+using System.Collections.Concurrent;
 using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert;
 
 public class InjectionScope : IInjectionProvider.IScope
 {
-    private static readonly ObjectPool<InjectionScope> PooledScopes = 
+    private static readonly ObjectPool<InjectionScope> PooledScopes =
         new(() => new InjectionScope());
 
-    private readonly ConcurrentKeyedDictionary<Type, object, object> _scoped = new();
+    private InjectionScope? _parent;
 
     private IInjectionProvider? _provider;
 
-    private InjectionScope? _parent;
+    private ConcurrentKeyedDictionary<Type, object, object>? _scopedKeyedInjections = null;
+
+    private ConcurrentDictionary<Type, object>? _scopedUnkeyedInjections = null;
 
     private InjectionTarget _target;
 
@@ -29,18 +32,35 @@ public class InjectionScope : IInjectionProvider.IScope
             throw new ObjectDisposedException(nameof(InjectionScope),
                 "Cannot get injection from this scope: scope is already disposed.");
 
-        var replacedKey = key ?? InjectionContainer.NullKey.Value;
-
         // Search in the scope chain for the scoped cache.
         for (var current = this; current != null; current = current._parent)
         {
-            if (current._scoped.TryGetValue(type, replacedKey, out var value))
-                return new InjectionItem(value, InjectionLifespan.Scoped);
+            if (key is null)
+            {
+                if (current._scopedUnkeyedInjections?.TryGetValue(type, out var value) == true)
+                    return new InjectionItem(value, InjectionLifespan.Scoped);
+            }
+            else
+            {
+                if (current._scopedKeyedInjections?.TryGetValue(type, key, out var value) == true)
+                    return new InjectionItem(value, InjectionLifespan.Scoped);
+            }
         }
 
         var entry = _provider.GetInjectionItem(type, key, target);
-        if (entry?.Lifespan == InjectionLifespan.Scoped)
-            _scoped.SetValue(type, replacedKey, entry.Value);
+        if (entry?.Lifespan != InjectionLifespan.Scoped) 
+            return entry;
+        
+        if (key is null)
+        {
+            _scopedUnkeyedInjections ??= new ConcurrentDictionary<Type, object>();
+            _scopedUnkeyedInjections[type] = entry.Value;
+        }
+        else
+        {
+            _scopedKeyedInjections ??= new ConcurrentKeyedDictionary<Type, object, object>();
+            _scopedKeyedInjections.SetValue(type, key, entry.Value);
+        }
         return entry;
     }
 
@@ -59,13 +79,14 @@ public class InjectionScope : IInjectionProvider.IScope
     public void Dispose()
     {
         _parent = null;
-        _scoped.Clear();
+        _scopedKeyedInjections?.Clear();
+        _scopedUnkeyedInjections?.Clear();
         if (_provider == null)
             return;
         _provider = null;
         PooledScopes.Return(this);
     }
-    
+
     public static InjectionScope New(
         IInjectionProvider provider, InjectionScope? parent, InjectionTarget target)
     {
