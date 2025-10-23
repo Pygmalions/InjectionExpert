@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace InjectionExpert;
 
-public interface IInjectionContainer : IInjectionProvider
+public interface IInjectionContainer : IInjectionProvider, IEnumerable<(Type Type, object? Key, InjectionEntry Entry)>
 {
     /// <summary>
     /// Factory delegate to create instances for injection.
@@ -67,4 +67,14 @@ public interface IInjectionContainer : IInjectionProvider
     /// <param name="key">Optional key for the injection.</param>
     /// <returns>True if the resource is removed from this container, false if it is not found.</returns>
     bool RemoveInjection(Type type, object? key = null);
+
+    /// <summary>
+    /// Clear all cached non-constant singleton values.
+    /// </summary>
+    void InvalidateCache();
+    
+    /// <summary>
+    /// Clear all injections and redirections in this container.
+    /// </summary>
+    void Clear();
 }

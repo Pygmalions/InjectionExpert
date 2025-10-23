@@ -1,9 +1,11 @@
+using System.Collections;
+using InjectionExpert.Entries;
 using InjectionExpert.Utilities.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace InjectionExpert;
 
-public partial class InjectionContainer : IInjectionContainer
+public class InjectionContainer : IInjectionContainer
 {
     private readonly ConcurrentKeyedDictionary<Type, object, InjectionEntry> _entries = new();
 
@@ -20,7 +22,7 @@ public partial class InjectionContainer : IInjectionContainer
     {
         var entry = SearchEntry(type, key);
         return entry != null
-            ? new InjectionItem(entry.GetValue(type, target), entry.Lifespan)
+            ? new InjectionItem(entry.GetInjection(type, target), entry.Lifespan)
             : null;
     }
 
@@ -46,7 +48,7 @@ public partial class InjectionContainer : IInjectionContainer
                     $"'{implementation}' is not be assignable to category type '{type}'.");
 
             _entries.SetValue(type, key,
-                new TypeDefinitionEntry(this, lifespan, genericCategory, implementation));
+                new InjectionTypeDefinitionEntry(this, lifespan, genericCategory, implementation));
             Logger?.LogInformation(
                 "Injection Added - Generic: {Type} -> {Implementation} (Lifespan: {Lifespan}, Key: {Key})",
                 type, implementation, lifespan, key);
@@ -58,7 +60,7 @@ public partial class InjectionContainer : IInjectionContainer
                     $"Cannot add injection: implementation type " +
                     $"'{implementation}' is not be assignable to type '{type}'.");
 
-            _entries.SetValue(type, key, new TypeEntry(this, lifespan, implementation));
+            _entries.SetValue(type, key, new InjectionTypeEntry(this, lifespan, implementation));
             Logger?.LogInformation(
                 "Injection Added: {Type} -> {Implementation} (Lifespan: {Lifespan}, Key: {Key})",
                 type, implementation, lifespan, key);
@@ -72,7 +74,7 @@ public partial class InjectionContainer : IInjectionContainer
         Logger?.LogInformation(
             "Injection Added - Factory: {Type} -> {Factory} (Lifespan: {Lifespan}, Key: {Key})",
             type, factory.Method.DeclaringType, lifespan, key);
-        _entries.SetValue(type, key ?? NullKey.Value, new FactoryEntry(this, lifespan, factory));
+        _entries.SetValue(type, key ?? NullKey.Value, new InjectionFactoryEntry(this, lifespan, factory));
     }
 
     public void AddInjection(Type type, object value, object? key = null)
@@ -80,7 +82,7 @@ public partial class InjectionContainer : IInjectionContainer
         Logger?.LogInformation(
             "Injection Added - Constant: {Type} -> {Value} (Key: {Key})",
             type, value, key);
-        _entries.SetValue(type, key ?? NullKey.Value, new ConstantEntry(value));
+        _entries.SetValue(type, key ?? NullKey.Value, new InjectionConstantEntry(value));
     }
 
     public void AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
@@ -88,7 +90,7 @@ public partial class InjectionContainer : IInjectionContainer
         Logger?.LogInformation(
             "Injection Added - Redirection: ({FromType}, Key: {Key}) -> ({ToType}, Key: {ToKey})",
             fromType, fromKey, toType, toKey);
-        _entries.SetValue(fromType, fromKey ?? NullKey.Value, new RedirectionEntry(this, toType, toKey));
+        _entries.SetValue(fromType, fromKey ?? NullKey.Value, new InjectionRedirectionEntry(this, toType, toKey));
     }
 
     public bool RemoveInjection(Type type, object? key = null)
@@ -99,12 +101,33 @@ public partial class InjectionContainer : IInjectionContainer
         return true;
     }
 
+    public void Clear()
+    {
+        _entries.Clear();
+        Logger?.LogInformation("All entries are removed.");
+    }
+
+    public void InvalidateCache()
+    {
+        foreach (var (_, _, entry) in _entries)
+            entry.InvalidateCache();
+        Logger?.LogInformation("All cached are removed.");
+    }
+
+    public IEnumerator<(Type Type, object? Key, InjectionEntry Entry)> GetEnumerator()
+        => _entries
+            .Select(pair =>
+                (pair.PrimaryKey, pair.SecondaryKey is NullKey ? null : pair.SecondaryKey, pair.Value))
+            .GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
     private InjectionEntry? SearchEntry(Type type, object? key)
     {
         var entry = _entries.GetValueOrDefault(type, key ?? NullKey.Value);
         return entry switch
         {
-            RedirectionEntry redirection =>
+            InjectionRedirectionEntry redirection =>
                 // Redirection entries are handled here to optimize the lookup performance.
                 SearchEntry(redirection.TargetType, redirection.TargetKey),
             null when type is { IsGenericType: true, IsGenericTypeDefinition: false } =>
@@ -124,7 +147,7 @@ public partial class InjectionContainer : IInjectionContainer
         private NullKey()
         {
         }
-        
+
         public override string ToString() => "<Null>";
     }
 }
