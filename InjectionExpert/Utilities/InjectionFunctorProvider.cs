@@ -12,7 +12,7 @@ namespace InjectionExpert.Utilities;
 /// If false, the factory will be called for every request.
 /// </param>
 public class InjectionFunctorProvider(
-    InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons = true) 
+    InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons) 
     : IInjectionProvider
 {
     /// <summary>
@@ -60,7 +60,7 @@ public static class InjectionFunctorProviderExtensions
         /// </param>
         /// <returns>Injection provider created that wraps the specified functor.</returns>
         public static InjectionFunctorProvider FromFunctor(
-            InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons = true)
+            InjectionFunctorProvider.ProviderDelegate provider, bool cachingSingletons = false)
             => new(provider, cachingSingletons);
     }
 }
