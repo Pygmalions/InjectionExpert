@@ -9,7 +9,7 @@ public class InjectionContainer : IInjectionContainer
 {
     private readonly ConcurrentKeyedDictionary<Type, object, InjectionEntry> _entries = new();
 
-    [Injection] public ILogger<InjectionContainer>? Logger { get; init; }
+    [Injection] public ILogger<InjectionContainer>? Logger { protected get; init; }
 
     /// <summary>
     /// Get an injection from this container.

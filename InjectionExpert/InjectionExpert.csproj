@@ -4,7 +4,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>0.3.0-dev10231715</Version>
+        <Version>0.3.0-dev10231936</Version>
         <Title>Injection Expert</Title>
         <Authors>Pygmalions</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
