@@ -64,6 +64,15 @@ public class InjectionFunctorProvider(
 
     public IInjectionProvider.IScope NewScope(InjectionTarget target) =>
         InjectionScope.New(this, null, target);
+
+    /// <summary>
+    /// Remove cached singletons if any.
+    /// </summary>
+    public void InvalidateCache()
+    {
+        _cachedUnkeyedSingletons?.Clear();
+        _cachedKeyedSingletons?.Clear();
+    }
 }
 
 public static class InjectionFunctorProviderExtensions
