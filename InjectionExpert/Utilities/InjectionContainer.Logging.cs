@@ -8,10 +8,13 @@ public static class InjectionContainerLoggingExtensions
     {
         public TContainer AddLogging<TLoggerFactory>(TLoggerFactory factory) where TLoggerFactory : ILoggerFactory
         {
+            // Register the factory.
             container.AddSingleton(factory);
             container.AddRedirection(
                 typeof(ILoggerFactory), null,
                 typeof(TLoggerFactory), null);
+            
+            // Register loggers.
             container.AddInjection(InjectionLifespan.Transient,
                 typeof(Logger<>), (provider, type, target) =>
                     Activator.CreateInstance(
@@ -20,7 +23,6 @@ public static class InjectionContainerLoggingExtensions
             container.AddRedirection(
                 typeof(ILogger<>), null,
                 typeof(Logger<>), null);
-            
             container.AddInjection(InjectionLifespan.Transient,
                 typeof(ILogger), (provider, type, target) =>
                     provider.RequireInjection<ILoggerFactory>(null, target)
