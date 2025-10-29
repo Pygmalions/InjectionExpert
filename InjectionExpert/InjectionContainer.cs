@@ -19,39 +19,57 @@ public class InjectionContainer : IInjectionContainer
     /// <returns>
     /// True if a previous entry is overwritten; false if a new entry is added.
     /// </returns>
-    private bool SetEntry(Type type, object? key, InjectionEntry entry)
+    private bool SetEntryItem(Type type, object? key, InjectionEntry entry)
     {
         ref var group = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, type, out _);
         if (key is null)
         {
-            var existedUnkeyed = group.UnkeyedEntry != null;
-            group.UnkeyedEntry = entry;
-            return existedUnkeyed;
+            if (group.UnkeyedItem is null)
+            {
+                group.UnkeyedItem = new EntryItem(entry);
+                return false;
+            }
+
+            group.UnkeyedItem.Entry = entry;
+            return true;
         }
 
-        group.KeyedEntries ??= new Dictionary<object, InjectionEntry>();
+        group.KeyedItems ??= new Dictionary<object, EntryItem>();
         ref var item = ref CollectionsMarshal.GetValueRefOrAddDefault(
-            group.KeyedEntries, key, out var existedKeyed);
-        item = entry;
-        return existedKeyed;
+            group.KeyedItems, key, out _);
+        if (item is null)
+        {
+            item = new EntryItem(entry);
+            return false;
+        }
+
+        item.Entry = entry;
+        return true;
     }
 
-    private InjectionEntry? GetEntry(Type type, object? key)
+    private EntryItem? GetEntryItem(Type type, object? key)
     {
         if (!_groups.TryGetValue(type, out var group))
             return null;
-        return key is null ? group.UnkeyedEntry : group.KeyedEntries?.GetValueOrDefault(key);
+        return key is null ? group.UnkeyedItem : group.KeyedItems?.GetValueOrDefault(key);
     }
 
-    private bool RemoveEntry(Type type, object? key)
+    private bool RemoveEntryItem(Type type, object? key)
     {
         if (!_groups.TryGetValue(type, out var group))
             return false;
         if (key is not null)
-            return group.KeyedEntries?.Remove(key) is true;
-        if (group.UnkeyedEntry == null)
+        {
+            if (group.KeyedItems?.Remove(key, out var keyedItem) is not true) 
+                return false;
+            keyedItem.IsValid = false;
+            return true;
+
+        }
+        if (group.UnkeyedItem == null)
             return false;
-        group.UnkeyedEntry = null;
+        group.UnkeyedItem.IsValid = false;
+        group.UnkeyedItem = null;
         return true;
     }
 
@@ -89,7 +107,7 @@ public class InjectionContainer : IInjectionContainer
                     $"Cannot add injection: implementation type " +
                     $"'{implementation}' is not be assignable to category type '{type}'.");
 
-            var overwritten = SetEntry(type, key,
+            var overwritten = SetEntryItem(type, key,
                 new InjectionTypeDefinitionEntry(this, lifespan, genericCategory, implementation));
             if (Logger?.IsEnabled(LogLevel.Information) is true)
                 Logger.LogInformation(
@@ -104,7 +122,7 @@ public class InjectionContainer : IInjectionContainer
                     $"Cannot add injection: implementation type " +
                     $"'{implementation}' is not be assignable to type '{type}'.");
 
-            var overwritten = SetEntry(type, key,
+            var overwritten = SetEntryItem(type, key,
                 new InjectionTypeEntry(this, lifespan, implementation));
             if (Logger?.IsEnabled(LogLevel.Information) is true)
                 Logger.LogInformation(
@@ -118,7 +136,7 @@ public class InjectionContainer : IInjectionContainer
         Type type, IInjectionContainer.FactoryDelegate factory,
         object? key = null)
     {
-        var overwritten = SetEntry(type, key, new InjectionFactoryEntry(this, lifespan, factory));
+        var overwritten = SetEntryItem(type, key, new InjectionFactoryEntry(this, lifespan, factory));
         if (Logger?.IsEnabled(LogLevel.Information) is true)
             Logger.LogInformation(
                 "Injection Added - Factory: {Type} -> {Factory} " +
@@ -128,7 +146,7 @@ public class InjectionContainer : IInjectionContainer
 
     public void AddInjection(Type type, object value, object? key = null)
     {
-        var overwritten = SetEntry(type, key, new InjectionConstantEntry(value));
+        var overwritten = SetEntryItem(type, key, new InjectionConstantEntry(value));
         if (Logger?.IsEnabled(LogLevel.Information) is true)
             Logger.LogInformation(
                 "Injection Added - Constant: {Type} -> {Value} " +
@@ -138,7 +156,7 @@ public class InjectionContainer : IInjectionContainer
 
     public void AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
     {
-        var overwritten = SetEntry(fromType, fromKey,
+        var overwritten = SetEntryItem(fromType, fromKey,
             new InjectionRedirectionEntry(this, toType, toKey));
         if (Logger?.IsEnabled(LogLevel.Information) is true)
             Logger.LogInformation(
@@ -149,7 +167,7 @@ public class InjectionContainer : IInjectionContainer
 
     public bool RemoveInjection(Type type, object? key = null)
     {
-        var removed = RemoveEntry(type, key);
+        var removed = RemoveEntryItem(type, key);
         if (removed && Logger?.IsEnabled(LogLevel.Information) is true)
             Logger.LogInformation("Injection Removed: {Type} (Key: {Key})", type, key);
         return removed;
@@ -165,11 +183,11 @@ public class InjectionContainer : IInjectionContainer
     {
         foreach (var (_, entry) in _groups)
         {
-            entry.UnkeyedEntry?.InvalidateCache();
-            if (entry.KeyedEntries is null)
+            entry.UnkeyedItem?.Entry.InvalidateCache();
+            if (entry.KeyedItems is null)
                 continue;
-            foreach (var (_, keyedEntry) in entry.KeyedEntries)
-                keyedEntry.InvalidateCache();
+            foreach (var (_, keyedEntry) in entry.KeyedItems)
+                keyedEntry.Entry.InvalidateCache();
         }
 
         Logger?.LogInformation("All cache are invalidated.");
@@ -179,12 +197,12 @@ public class InjectionContainer : IInjectionContainer
     {
         foreach (var (type, group) in _groups)
         {
-            if (group.UnkeyedEntry != null)
-                yield return (type, null, group.UnkeyedEntry);
-            if (group.KeyedEntries is null || group.KeyedEntries.Count == 0)
+            if (group.UnkeyedItem != null)
+                yield return (type, null, group.UnkeyedItem.Entry);
+            if (group.KeyedItems is null || group.KeyedItems.Count == 0)
                 continue;
-            foreach (var (key, entry) in group.KeyedEntries)
-                yield return (type, key, entry);
+            foreach (var (key, entry) in group.KeyedItems)
+                yield return (type, key, entry.Entry);
         }
     }
 
@@ -194,38 +212,82 @@ public class InjectionContainer : IInjectionContainer
 
     private InjectionEntry? SearchEntry(Type type, object? key)
     {
-        var attemptedCount = 0;
-        while (attemptedCount < MaxRedirectionDepth)
+        return InternalSearchItem(type, key, 0)?.Entry;
+
+        EntryItem? InternalSearchItem(Type currentType, object? currentKey, int currentRedirections)
         {
-            attemptedCount++;
-            var entry = GetEntry(type, key);
-            switch (entry)
+            while (true)
             {
-                case InjectionRedirectionEntry redirection:
-                    type = redirection.TargetType;
-                    key = redirection.TargetKey;
-                    break;
-                case null when type is { IsGenericType: true, IsGenericTypeDefinition: false }:
-                    type = type.EraseDeepestGenericArguments();
-                    break;
-                default:
-                    return entry;
+                var currentItem = GetEntryItem(currentType, currentKey);
+                switch (currentItem?.Entry)
+                {
+                    case InjectionRedirectionEntry redirection:
+                        if (currentItem.CachedRedirection is { } cachedItem) 
+                            return cachedItem;
+                        if (currentRedirections >= MaxRedirectionDepth)
+                        {
+                            if (Logger?.IsEnabled(LogLevel.Warning) is true)
+                            {
+                                Logger.LogWarning(
+                                    "Maximum redirection depth reached when searching for injection: " + 
+                                    "{Type} (Key: {Key}). Possible circular redirection detected.", 
+                                    type, key);
+                            }
+
+                            return null;
+                        }
+
+                        var redirectedItem = InternalSearchItem(redirection.TargetType, redirection.TargetKey, 
+                            currentRedirections + 1);
+                        currentItem.CachedRedirection = redirectedItem;
+                        return redirectedItem;
+                    
+                    case null when type is { IsGenericType: true, IsGenericTypeDefinition: false }:
+                        currentType = type.EraseDeepestGenericArguments();
+                        continue;
+                    
+                    default:
+                        return currentItem;
+                }
             }
         }
-
-        if (Logger?.IsEnabled(LogLevel.Warning) is true)
-        {
-            Logger.LogWarning("Maximum redirection depth reached when searching for injection: " +
-                              "{Type} (Key: {Key}). Possible circular redirection detected.", type, key);
-        }
-
-        return null;
     }
 
     private struct EntryGroup()
     {
-        public InjectionEntry? UnkeyedEntry = null;
+        public EntryItem? UnkeyedItem = null;
 
-        public Dictionary<object, InjectionEntry>? KeyedEntries = null;
+        public Dictionary<object, EntryItem>? KeyedItems = null;
+    }
+
+    private class EntryItem(InjectionEntry entry)
+    {
+        public InjectionEntry Entry
+        {
+            get;
+            set
+            {
+                field = value;
+                // Invalidate cached redirection if the entry is changed.
+                CachedRedirection = null;
+            }
+        } = entry;
+
+        public bool IsValid { get; set; } = true;
+
+        public EntryItem? CachedRedirection
+        {
+            get
+            {
+                if (field is null)
+                    return null;
+                if (field.IsValid)
+                    return field;
+                // Invalidate cached redirection if it is removed.
+                field = null;
+                return null;
+            }
+            set;
+        }
     }
 }
