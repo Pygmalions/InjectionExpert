@@ -2,22 +2,34 @@ using System.Diagnostics;
 
 namespace InjectionExpert.Entries;
 
+public abstract class InjectionFactoryEntry(InjectionLifespan lifespan) : InjectionEntry(lifespan)
+{
+    public delegate TInjection FactoryDelegate<out TInjection>(
+        IInjectionProvider provider, Type type, object? key, InjectionTarget target);
+    
+    public abstract Func<IInjectionProvider, Type, object?, InjectionTarget, object> UntypedFactory { get; }
+}
+
 [DebuggerDisplay("Factory={Factory}")]
-public class InjectionFactoryEntry(
+public class InjectionFactoryEntry<TInjection>(
     IInjectionProvider provider,
     InjectionLifespan lifespan,
-    IInjectionContainer.FactoryDelegate factory)
-    : InjectionEntry(lifespan)
+    InjectionFactoryEntry.FactoryDelegate<TInjection> factory)
+    : InjectionFactoryEntry(lifespan)
 {
     private object? _cache;
 
-    public IInjectionContainer.FactoryDelegate Factory { get; } = factory;
+    public FactoryDelegate<TInjection> Factory { get; } = factory;
 
-    public override object GetInjection(Type type, InjectionTarget target)
+    public override Func<IInjectionProvider, Type, object?, InjectionTarget, object> UntypedFactory
+        => (argumentProvider, argumentType, argumentKey, argumentTarget) => 
+            Factory(argumentProvider, argumentType, argumentKey, argumentTarget)!;
+
+    public override object GetInjection(Type type, object? key, InjectionTarget target)
     {
         if (Lifespan == InjectionLifespan.Singleton)
-            return _cache ??= Factory(provider, type, target);
-        return Factory(provider, type, target);
+            return _cache ??= Factory(provider, type, key, target)!;
+        return Factory(provider, type, key, target)!;
     }
 
     public override bool InvalidateCache()
@@ -27,4 +39,6 @@ public class InjectionFactoryEntry(
         _cache = null;
         return true;
     }
+
+    public override string ToString() => $"({Lifespan}, Factory: {Factory})";
 }

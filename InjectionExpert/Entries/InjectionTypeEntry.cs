@@ -10,7 +10,7 @@ public class InjectionTypeEntry(IInjectionProvider provider, InjectionLifespan l
     
     public Type Implementation { get; } = implementation;
 
-    public override object GetInjection(Type type, InjectionTarget target)
+    public override object GetInjection(Type type, object? key, InjectionTarget target)
     {
         if (Lifespan == InjectionLifespan.Singleton)
             return _cache ??= provider.NewObject(Implementation);
@@ -24,4 +24,6 @@ public class InjectionTypeEntry(IInjectionProvider provider, InjectionLifespan l
         _cache = null;
         return true;
     }
+
+    public override string ToString() => $"({Lifespan}, Type: {Implementation})";
 }

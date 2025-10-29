@@ -11,9 +11,10 @@ public abstract class InjectionEntry(InjectionLifespan lifespan)
     /// Get the injection from this entry.
     /// </summary>
     /// <param name="type">Actually requested type.</param>
+    /// <param name="key">Actually requested key.</param>
     /// <param name="target">Target that requests the injection.</param>
     /// <returns>Injection value.</returns>
-    public abstract object GetInjection(Type type, InjectionTarget target);
+    public abstract object GetInjection(Type type, object? key, InjectionTarget target);
 
     /// <summary>
     /// Invalidate the cache of this entry.

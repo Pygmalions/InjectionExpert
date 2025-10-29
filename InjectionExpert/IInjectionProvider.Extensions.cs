@@ -31,7 +31,7 @@ public static class InjectionProviderExtensions
             => (TObject?)provider.GetInjectionItem(typeof(TObject), key, target)?.Instance;
 
         /// <summary>
-        /// Get an injection of the specified category for this provider,
+        /// Get an injection of the specified category for this provider
         /// or throw an exception if not found.
         /// </summary>
         /// <param name="type">Type of the injection.</param>

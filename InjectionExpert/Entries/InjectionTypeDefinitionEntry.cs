@@ -1,29 +1,52 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using InjectionExpert.Utilities;
+using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Entries;
 
-[DebuggerDisplay("GenericDefinition={Implementation}")]
-public class InjectionTypeDefinitionEntry(
-    IInjectionProvider provider,
-    InjectionLifespan lifespan,
-    Type genericCategory,
-    Type implementation) : InjectionEntry(lifespan)
+[DebuggerDisplay("GenericDefinition={ImplementationDefinition}")]
+public class InjectionTypeDefinitionEntry : InjectionEntry
 {
     private ConcurrentDictionary<Type, object>? _caches;
 
-    /// <summary>
-    /// Implementation type definition.
-    /// </summary>
-    public Type Implementation { get; } = implementation;
-
+    private readonly IInjectionProvider _provider;
+    
     /// <summary>
     /// Category type definition, defined with the generic parameters from the implementation type definition.
     /// </summary>
-    public Type GenericCategory { get; } = genericCategory;
+    public Type CategoryDefinition { get; }
+    
+    /// <summary>
+    /// Implementation type definition.
+    /// </summary>
+    public Type ImplementationDefinition { get; }
 
-    public override object GetInjection(Type type, InjectionTarget target)
+    public InjectionTypeDefinitionEntry(
+        IInjectionProvider provider, InjectionLifespan lifespan,
+        Type category, Type implementation) : base(lifespan)
+    {
+        _provider = provider;
+        if (category.IsInterface)
+        {
+            if (!implementation.TryMatchInterface(category, out var matchedCategory))
+                throw new ArgumentException(
+                    "The implementation type definition does not implement the category type definition.", 
+                    nameof(implementation));
+            CategoryDefinition = matchedCategory;
+        }
+        else
+        {
+            if (!implementation.TryMatchGenericBaseType(category, out var matchedCategory))
+                throw new ArgumentException(
+                    "The implementation type definition does not implement the category type definition.", 
+                    nameof(implementation));
+            CategoryDefinition = matchedCategory;
+        }
+        ImplementationDefinition = implementation;
+    }
+
+    public override object GetInjection(Type type, object? key, InjectionTarget target)
     {
         if (Lifespan != InjectionLifespan.Singleton)
             return InstantiateValue(type);
@@ -33,12 +56,12 @@ public class InjectionTypeDefinitionEntry(
 
         object InstantiateValue(Type targetType)
         {
-            if (targetType.GetGenericTypeDefinition() == Implementation)
-                return provider.NewObject(targetType);
-            var parameters = new Type[Implementation.GetGenericArguments().Length];
+            if (targetType.GetGenericTypeDefinition() == ImplementationDefinition)
+                return _provider.NewObject(targetType);
+            var parameters = new Type[ImplementationDefinition.GetGenericArguments().Length];
             GenericParameterExtractor.ExtractArguments(
-                targetType, GenericCategory, parameters);
-            return provider.NewObject(Implementation.MakeGenericType(parameters));
+                targetType, CategoryDefinition, parameters);
+            return _provider.NewObject(ImplementationDefinition.MakeGenericType(parameters));
         }
     }
 
@@ -49,4 +72,6 @@ public class InjectionTypeDefinitionEntry(
         _caches.Clear();
         return true;
     }
+
+    public override string ToString() => $"({Lifespan}, Generic Definition: {ImplementationDefinition})";
 }

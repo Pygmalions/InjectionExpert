@@ -7,5 +7,7 @@ public class InjectionConstantEntry(object value) : InjectionEntry(InjectionLife
 {
     public object Value { get; } = value;
 
-    public override object GetInjection(Type type, InjectionTarget target) => Value;
+    public override object GetInjection(Type type, object? key, InjectionTarget target) => Value;
+
+    public override string ToString() => $"(Constant, {Value})";
 }

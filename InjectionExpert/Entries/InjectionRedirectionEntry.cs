@@ -10,6 +10,8 @@ public class InjectionRedirectionEntry(IInjectionProvider provider, Type targetT
 
     public object? TargetKey { get; } = targetKey;
 
-    public override object GetInjection(Type type, InjectionTarget target)
+    public override object GetInjection(Type type, object? key, InjectionTarget target)
         => provider.GetInjectionItem(TargetType, TargetKey, target)!;
+    
+    public override string ToString() => $"(Redirection, Type: {TargetType}, Key: {TargetKey})";
 }

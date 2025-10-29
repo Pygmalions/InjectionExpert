@@ -16,7 +16,7 @@ public static class InjectionContainerLoggingExtensions
             
             // Register loggers.
             container.AddInjection(InjectionLifespan.Transient,
-                typeof(Logger<>), (provider, type, target) =>
+                typeof(Logger<>), (provider, type, key, target) =>
                     Activator.CreateInstance(
                         typeof(Logger<>).MakeGenericType(type.GetGenericArguments()), 
                         provider.RequireInjection<ILoggerFactory>(null, target))!);
@@ -24,10 +24,9 @@ public static class InjectionContainerLoggingExtensions
                 typeof(ILogger<>), null,
                 typeof(Logger<>), null);
             container.AddInjection(InjectionLifespan.Transient,
-                typeof(ILogger), (provider, type, target) =>
+                typeof(ILogger), (provider, type, key, target) =>
                     provider.RequireInjection<ILoggerFactory>(null, target)
                         .CreateLogger(target.OwnerType?.FullName ?? "Unnamed"));
-            
             return container;
         }
     }

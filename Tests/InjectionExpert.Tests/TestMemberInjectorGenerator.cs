@@ -135,8 +135,8 @@ public class TestMemberInjectorGenerator
     public void Injector_InjectOnlyNull_NullableTypes()
     {
         var container = new InjectionContainer()
-            .AddSingleton<int?>(1)
-            .AddSingleton<double?>(1.0);
+            .AddSingleton((int?)1)
+            .AddSingleton((double?)1.0);
 
         var sample = new StubWithNullable()
         {
