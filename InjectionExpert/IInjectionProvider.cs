@@ -11,7 +11,7 @@ public interface IInjectionProvider
     /// <param name="key">An optional key to differentiate injection items.</param>
     /// <param name="target">Information about the injection target which requests this injection.</param>
     /// <returns>Injection with the specified category and key, or null if not found.</returns>
-    InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target);
+    InjectionItem? GetInjectionItem(Type type, object? key = null, InjectionTarget target = default);
 
     /// <summary>
     /// Scope can manage injections with <see cref="InjectionLifespan.Scoped"/> lifespan.

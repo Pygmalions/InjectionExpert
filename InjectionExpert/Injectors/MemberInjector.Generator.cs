@@ -72,7 +72,7 @@ public partial class MemberInjector
 
         foreach (var member in type
                      .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                     .Where(candidate => ShouldBeInjected(candidate, options)))
+                     .Where(candidate => ShouldMemberBeInjected(candidate, options)))
         {
             var attribute = member.GetCustomAttribute<InjectionAttribute>();
             var required = member.IsDefined(typeof(RequiredMemberAttribute));
@@ -174,7 +174,7 @@ public partial class MemberInjector
         return typeContext.BuildingType;
     }
 
-    private static bool ShouldBeInjected(MemberInfo member, InjectionOptionsAttribute? options)
+    private static bool ShouldMemberBeInjected(MemberInfo member, InjectionOptionsAttribute? options)
     {
         switch (member)
         {

@@ -12,9 +12,9 @@ public class InjectionScope : IInjectionProvider.IScope
 
     private IInjectionProvider? _provider;
 
-    private ConcurrentKeyedDictionary<Type, object, object>? _scopedKeyedInjections = null;
+    private ConcurrentKeyedDictionary<Type, object, object>? _scopedKeyedInjections;
 
-    private ConcurrentDictionary<Type, object>? _scopedUnkeyedInjections = null;
+    private ConcurrentDictionary<Type, object>? _scopedUnkeyedInjections;
 
     private InjectionTarget _target;
 
@@ -54,12 +54,12 @@ public class InjectionScope : IInjectionProvider.IScope
         if (key is null)
         {
             _scopedUnkeyedInjections ??= new ConcurrentDictionary<Type, object>();
-            _scopedUnkeyedInjections[type] = entry.Value;
+            _scopedUnkeyedInjections[type] = entry.Value.Instance;
         }
         else
         {
             _scopedKeyedInjections ??= new ConcurrentKeyedDictionary<Type, object, object>();
-            _scopedKeyedInjections.SetValue(type, key, entry.Value);
+            _scopedKeyedInjections.SetValue(type, key, entry.Value.Instance);
         }
         return entry;
     }

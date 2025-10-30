@@ -40,7 +40,7 @@ public partial class MemberInjector
     /// Inject the members of the specified object.
     /// If the specified object is a boxed struct, then the boxed value will be replaced.
     /// </summary>
-    /// <param name="target">Target object, can be boxed structs.</param>
+    /// <param name="target">Target object can be boxed structs.</param>
     /// <param name="provider">Provider to get injections from.</param>
     /// <param name="missing">
     /// The requester whose injection requirement cannot be satisfied.
@@ -79,7 +79,7 @@ public partial class MemberInjector
     /// <param name="injection">Injection instance.</param>
     /// <param name="onlyNullMembers">If true, only null members will be updated to the new value.</param>
     /// <returns>
-    /// True if the members with specified type of injections are updated;
+    /// True if the members with the specified type of injections are updated;
     /// false if no member is injected with the specified type.
     /// </returns>
     public bool TryUpdate(object target, Type type, object? key, object? injection, 

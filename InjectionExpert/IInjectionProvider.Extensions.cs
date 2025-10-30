@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using InjectionExpert.Injectors;
 
 namespace InjectionExpert;
@@ -14,7 +15,10 @@ public static class InjectionProviderExtensions
         /// <param name="type">Type of the injection.</param>
         /// <param name="key">Optional key for the requested injection.</param>
         /// <param name="target">Target that requests the injection.</param>
-        /// <returns>Requested injection, or null if not found.</returns>
+        /// <returns>
+        /// Requested injection if it is found;
+        /// otherwise, null for reference types or default value for value types.
+        /// </returns>
         [DebuggerStepThrough, StackTraceHidden]
         public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
             => provider.GetInjectionItem(type, key, target)?.Instance;
@@ -25,10 +29,43 @@ public static class InjectionProviderExtensions
         /// <typeparam name="TObject">Type of the injection.</typeparam>
         /// <param name="key">Optional key for the requested injection.</param>
         /// <param name="target">Target that requests the injection.</param>
-        /// <returns>Requested injection, or null if not found.</returns>
+        /// <returns>
+        /// Requested injection, or null (for reference types) and default value (for value types)
+        /// if not found.
+        /// </returns>
         [DebuggerStepThrough, StackTraceHidden]
         public TObject? GetInjection<TObject>(object? key = null, InjectionTarget target = default)
             => (TObject?)provider.GetInjectionItem(typeof(TObject), key, target)?.Instance;
+
+        /// <summary>
+        /// Get an injection of the specified category for this provider.
+        /// </summary>
+        /// <param name="type">Type of the injection.</param>
+        /// <param name="injection">Injection with the specified type and key.</param>
+        /// <param name="key">Optional key for the requested injection.</param>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>True if the injection is found, otherwise false.</returns>
+        public bool TryGetInjection([MaybeNullWhen(false)] out object injection,
+            Type type, object? key = null, InjectionTarget target = default)
+        {
+            injection = provider.GetInjectionItem(type, key, target)?.Instance;
+            return injection != null;
+        }
+
+        /// <summary>
+        /// Get an injection of the specified category for this provider.
+        /// </summary>
+        /// <typeparam name="TObject">Type of the injection.</typeparam>
+        /// <param name="injection">Injection with the specified type and key.</param>
+        /// <param name="key">Optional key for the requested injection.</param>
+        /// <param name="target">Target that requests the injection.</param>
+        /// <returns>True if the injection is found, otherwise false.</returns>
+        public bool TryGetInjection<TObject>([MaybeNullWhen(false)] out TObject injection,
+            object? key = null, InjectionTarget target = default)
+        {
+            injection = (TObject?)provider.GetInjectionItem(typeof(TObject), key, target)?.Instance;
+            return injection != null;
+        }
 
         /// <summary>
         /// Get an injection of the specified category for this provider
@@ -143,7 +180,7 @@ public static class InjectionProviderExtensions
         /// <typeparam name="TTarget">Type of the target.</typeparam>
         /// <typeparam name="TDependency">Type of the dependency.</typeparam>
         /// <returns>Injected target instance.</returns>
-        public TTarget Inject<TDependency>(TDependency injection, 
+        public TTarget Inject<TDependency>(TDependency injection,
             object? key = null, bool onlyNullMembers = true)
         {
             object boxedTarget = target;

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using InjectionExpert.Injectors;
+using JetBrains.Annotations;
 
 namespace InjectionExpert.Tests;
 
@@ -55,6 +56,7 @@ public class TestConstructorInjector
 
         public readonly double Value = value;
 
+        [UsedImplicitly]
         public StubTwoConstructorInjectionClass(int number, int value1, int value2, int value3) :
             this(string.Empty, number, value1 + value2 + value3)
         {
@@ -138,6 +140,7 @@ public class TestConstructorInjector
         public readonly int Number = number;
         public readonly double Value = value;
 
+        // ReSharper disable once UnusedMember.Local
         public StubTwoConstructorInjectionStruct(int number, int value1, int value2, int value3) :
             this(string.Empty, number, value1 + value2 + value3)
         {
@@ -268,8 +271,8 @@ public class TestConstructorInjector
 
     private class StubWithKeys([Injection(Key = 1)] string key1, [Injection(Key = 2)] string key2)
     {
-        public string Key1 = key1;
-        public string Key2 = key2;
+        public readonly string Key1 = key1;
+        public readonly string Key2 = key2;
     }
 
     [Test]
