@@ -70,7 +70,7 @@ public class TestInjectionContainer
             Assert.That(addedAgain, Is.False);
         }
 
-        var removed = container.RemoveInjectionEntry(typeof(int), null);
+        var removed = container.RemoveInjection(typeof(int), null);
         Assert.That(removed, Is.True);
         var missing = container.GetInjection(typeof(int));
         Assert.That(missing, Is.Null);

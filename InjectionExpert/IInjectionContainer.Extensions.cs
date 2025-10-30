@@ -7,6 +7,15 @@ public static class InjectionContainerExtensions
     extension<TContainer>(TContainer container) where TContainer : IInjectionContainer
     {
         /// <summary>
+        /// Remove the injection entry for the specified type and key.
+        /// </summary>
+        /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
+        /// <param name="key">Optional key of the entry.</param>
+        /// <returns>True if the entry is removed, or false if the entry is not found.</returns>
+        public bool RemoveInjection<TInjection>(object? key = null)
+            => container.RemoveInjection(typeof(TInjection), key);
+        
+        /// <summary>
         /// Add the specified instance as a constant injection to this container.
         /// </summary>
         /// <param name="type">Type that the entry is associated with.</param>
@@ -14,7 +23,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public TContainer AddSingleton(Type type, object instance, object? key = null)
         {
-            container.AddInjectionEntry(type, key, new InjectionConstantEntry(instance));
+            container.AddInjection(type, key, new InjectionConstantEntry(instance));
             return container;
         }
 
@@ -26,7 +35,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public TContainer AddSingleton<TInjection>(TInjection instance, object? key = null)
         {
-            container.AddInjectionEntry(typeof(TInjection), key, new InjectionConstantEntry(instance!));
+            container.AddInjection(typeof(TInjection), key, new InjectionConstantEntry(instance!));
             return container;
         }
 
@@ -39,7 +48,7 @@ public static class InjectionContainerExtensions
         /// <param name="toKey">Key to redirect to.</param>
         public TContainer AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
         {
-            container.AddInjectionEntry(fromType, fromKey,
+            container.AddInjection(fromType, fromKey,
                 new InjectionRedirectionEntry(toType, toKey));
             return container;
         }
@@ -65,10 +74,10 @@ public static class InjectionContainerExtensions
             Type type, Type implementation, object? key = null)
         {
             if (!type.IsGenericTypeDefinition)
-                container.AddInjectionEntry(type, key,
+                container.AddInjection(type, key,
                     new InjectionTypeEntry(lifespan, implementation));
             else
-                container.AddInjectionEntry(type, key,
+                container.AddInjection(type, key,
                     new InjectionTypeDefinitionEntry(lifespan, type, implementation));
             return container;
         }
@@ -174,7 +183,7 @@ public static class InjectionContainerExtensions
         public TContainer AddInjection(InjectionLifespan lifespan,
             Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
         {
-            container.AddInjectionEntry(type, key,
+            container.AddInjection(type, key,
                 new InjectionFactoryEntry<object>(lifespan, factory));
             return container;
         }
@@ -189,7 +198,7 @@ public static class InjectionContainerExtensions
         public TContainer AddInjection<TInjection>(InjectionLifespan lifespan,
             InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
         {
-            container.AddInjectionEntry(typeof(TInjection), key,
+            container.AddInjection(typeof(TInjection), key,
                 new InjectionFactoryEntry<TInjection>(lifespan, factory));
             return container;
         }
@@ -264,7 +273,7 @@ public static class InjectionContainerExtensions
         /// <param name="instance">Instance to add.</param>
         /// <param name="key">Optional key of the entry.</param>
         public bool TryAddSingleton(Type type, object instance, object? key = null)
-            => container.TryAddInjectionEntry(type, key, new InjectionConstantEntry(instance));
+            => container.TryAddInjection(type, key, new InjectionConstantEntry(instance));
 
         /// <summary>
         /// Add the specified instance as a constant injection to this container.
@@ -273,7 +282,7 @@ public static class InjectionContainerExtensions
         /// <param name="instance">Instance to add.</param>
         /// <param name="key">Optional key of the entry.</param>
         public bool TryAddSingleton<TInjection>(Type type, TInjection instance, object? key = null)
-            => container.TryAddInjectionEntry(type, key, new InjectionConstantEntry(instance!));
+            => container.TryAddInjection(type, key, new InjectionConstantEntry(instance!));
 
         /// <summary>
         /// Add a redirection from one type/key to another type/key.
@@ -283,7 +292,7 @@ public static class InjectionContainerExtensions
         /// <param name="toType">Type to redirect to.</param>
         /// <param name="toKey">Key to redirect to.</param>
         public bool TryAddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
-            => container.TryAddInjectionEntry(fromType, fromKey,
+            => container.TryAddInjection(fromType, fromKey,
                 new InjectionRedirectionEntry(toType, toKey));
 
         /// <summary>
@@ -307,10 +316,10 @@ public static class InjectionContainerExtensions
             Type type, Type implementation, object? key = null)
         {
             if (!type.IsGenericTypeDefinition)
-                return container.TryAddInjectionEntry(type, key,
+                return container.TryAddInjection(type, key,
                     new InjectionTypeEntry(lifespan, implementation));
 
-            return container.TryAddInjectionEntry(type, key,
+            return container.TryAddInjection(type, key,
                 new InjectionTypeDefinitionEntry(lifespan, type, implementation));
         }
 
@@ -413,7 +422,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public bool TryAddInjection(InjectionLifespan lifespan,
             Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
-            => container.TryAddInjectionEntry(type, key,
+            => container.TryAddInjection(type, key,
                 new InjectionFactoryEntry<object>(lifespan, factory));
 
         /// <summary>
@@ -425,7 +434,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public bool TryAddInjection<TInjection>(InjectionLifespan lifespan,
             InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
-            => container.TryAddInjectionEntry(typeof(TInjection), key,
+            => container.TryAddInjection(typeof(TInjection), key,
                 new InjectionFactoryEntry<TInjection>(lifespan, factory));
 
         /// <summary>

@@ -16,7 +16,7 @@ public interface IInjectionContainer : IInjectionProvider, IEnumerable<(Type Typ
     /// <param name="type">Type that the entry is associated with.</param>
     /// <param name="key">Optional key of the entry.</param>
     /// <param name="entry">Injection entry to add.</param>
-    void AddInjectionEntry(Type type, object? key, InjectionEntry entry);
+    void AddInjection(Type type, object? key, InjectionEntry entry);
 
     /// <summary>
     /// Try to add an injection entry for the specified type and key,
@@ -26,7 +26,7 @@ public interface IInjectionContainer : IInjectionProvider, IEnumerable<(Type Typ
     /// <param name="key">Optional key of the entry.</param>
     /// <param name="entry">Injection entry to add.</param>
     /// <returns>True if the entry is added, or false if an entry with the same type and key exists.</returns>
-    bool TryAddInjectionEntry(Type type, object? key, InjectionEntry entry);
+    bool TryAddInjection(Type type, object? key, InjectionEntry entry);
 
     /// <summary>
     /// Remove the injection entry for the specified type and key.
@@ -34,7 +34,7 @@ public interface IInjectionContainer : IInjectionProvider, IEnumerable<(Type Typ
     /// <param name="type">Type that the entry is associated with.</param>
     /// <param name="key">Optional key of the entry.</param>
     /// <returns>True if the entry is removed, or false if the entry is not found.</returns>
-    bool RemoveInjectionEntry(Type type, object? key);
+    bool RemoveInjection(Type type, object? key = null);
 
     /// <summary>
     /// Clear all cached non-constant singleton values.

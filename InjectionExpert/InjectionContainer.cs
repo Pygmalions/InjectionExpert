@@ -20,7 +20,7 @@ public class InjectionContainer : IInjectionContainer
             : null;
     }
 
-    public void AddInjectionEntry(Type type, object? key, InjectionEntry entry)
+    public void AddInjection(Type type, object? key, InjectionEntry entry)
     {
         ref var group = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, type, out _);
         if (key is null)
@@ -62,7 +62,7 @@ public class InjectionContainer : IInjectionContainer
         }
     }
 
-    public bool TryAddInjectionEntry(Type type, object? key, InjectionEntry entry)
+    public bool TryAddInjection(Type type, object? key, InjectionEntry entry)
     {
         ref var group = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, type, out _);
         if (key is null)
@@ -88,7 +88,7 @@ public class InjectionContainer : IInjectionContainer
         return true;
     }
 
-    public bool RemoveInjectionEntry(Type type, object? key)
+    public bool RemoveInjection(Type type, object? key)
     {
         ref var group = ref CollectionsMarshal.GetValueRefOrNullRef(_groups, type);
         if (Unsafe.IsNullRef(ref group))

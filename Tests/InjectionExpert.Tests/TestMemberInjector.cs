@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Reflection;
 using InjectionExpert.Injectors;
 using JetBrains.Annotations;
@@ -12,11 +11,11 @@ public class TestMemberInjector
     [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
     private class StubMemberInjectionTarget
     {
-        [Injection] public double DoubleField;
-        [Injection] public long LongField;
-        [Injection] public int NumberField;
+        [Injection] public double DoubleField = 0.0;
+        [Injection] public long LongField = 0;
+        [Injection] public int NumberField = 0;
         [Injection] public string StringField = "";
-        [Injection] public int NumberProperty { get; set; }
+        [Injection] public int NumberProperty { get; set; } = 0;
     }
 
     [Test]
@@ -52,8 +51,8 @@ public class TestMemberInjector
     private class StubMemberInjectionTargetWithRequired
     {
         [Injection] public required double DoubleField;
-        [Injection] public long LongField;
-        [Injection] public int NumberField;
+        [Injection] public long LongField = 0;
+        [Injection] public int NumberField = 0;
         [Injection] public string StringField = "";
         [Injection] public int NumberProperty { get; set; }
     }
