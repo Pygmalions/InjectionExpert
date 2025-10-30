@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using InjectionExpert.Entries;
 using InjectionExpert.Utilities.Internal;
@@ -89,7 +90,8 @@ public class InjectionContainer : IInjectionContainer
 
     public bool RemoveInjectionEntry(Type type, object? key)
     {
-        if (!_groups.TryGetValue(type, out var group))
+        ref var group = ref CollectionsMarshal.GetValueRefOrNullRef(_groups, type);
+        if (Unsafe.IsNullRef(ref group))
             return false;
         if (key is not null)
         {
@@ -119,7 +121,7 @@ public class InjectionContainer : IInjectionContainer
     {
         var entry = SearchEntry(type, key);
         return entry != null
-            ? new InjectionItem(entry.GetInjection(type, null, target), entry.Lifespan)
+            ? new InjectionItem(entry.GetInjection(this, type, null, target), entry.Lifespan)
             : null;
     }
 

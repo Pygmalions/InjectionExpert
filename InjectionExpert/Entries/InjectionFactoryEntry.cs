@@ -12,7 +12,6 @@ public abstract class InjectionFactoryEntry(InjectionLifespan lifespan) : Inject
 
 [DebuggerDisplay("Factory={Factory}")]
 public class InjectionFactoryEntry<TInjection>(
-    IInjectionProvider provider,
     InjectionLifespan lifespan,
     InjectionFactoryEntry.FactoryDelegate<TInjection> factory)
     : InjectionFactoryEntry(lifespan)
@@ -25,7 +24,7 @@ public class InjectionFactoryEntry<TInjection>(
         => (argumentProvider, argumentType, argumentKey, argumentTarget) => 
             Factory(argumentProvider, argumentType, argumentKey, argumentTarget)!;
 
-    public override object GetInjection(Type type, object? key, InjectionTarget target)
+    public override object GetInjection(IInjectionProvider provider, Type type, object? key, InjectionTarget target)
     {
         if (Lifespan == InjectionLifespan.Singleton)
             return _cache ??= Factory(provider, type, key, target)!;

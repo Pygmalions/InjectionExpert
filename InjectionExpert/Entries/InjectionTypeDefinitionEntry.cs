@@ -9,8 +9,6 @@ namespace InjectionExpert.Entries;
 public class InjectionTypeDefinitionEntry : InjectionEntry
 {
     private ConcurrentDictionary<Type, object>? _caches;
-
-    private readonly IInjectionProvider _provider;
     
     /// <summary>
     /// Category type definition, defined with the generic parameters from the implementation type definition.
@@ -22,16 +20,15 @@ public class InjectionTypeDefinitionEntry : InjectionEntry
     /// </summary>
     public Type ImplementationDefinition { get; }
 
-    public InjectionTypeDefinitionEntry(
-        IInjectionProvider provider, InjectionLifespan lifespan,
+    public InjectionTypeDefinitionEntry(InjectionLifespan lifespan,
         Type category, Type implementation) : base(lifespan)
     {
-        _provider = provider;
         if (category.IsInterface)
         {
             if (!implementation.TryMatchInterface(category, out var matchedCategory))
                 throw new ArgumentException(
-                    "The implementation type definition does not implement the category type definition.", 
+                    $"Implementation type definition '{implementation.Name}' does not implement " +
+                    $"the category type definition '{category.Name}'.", 
                     nameof(implementation));
             CategoryDefinition = matchedCategory;
         }
@@ -39,14 +36,18 @@ public class InjectionTypeDefinitionEntry : InjectionEntry
         {
             if (!implementation.TryMatchGenericBaseType(category, out var matchedCategory))
                 throw new ArgumentException(
-                    "The implementation type definition does not implement the category type definition.", 
+                    $"Implementation type definition '{implementation.Name}' does not implement " +
+                    $"the category type definition '{category.Name}'.", 
                     nameof(implementation));
             CategoryDefinition = matchedCategory;
         }
         ImplementationDefinition = implementation;
     }
 
-    public override object GetInjection(Type type, object? key, InjectionTarget target)
+    public override object GetInjection(IInjectionProvider provider, Type type, object? key, InjectionTarget target)
+        => GetInjection(provider, type);
+
+    public object GetInjection(IInjectionProvider provider, Type type)
     {
         if (Lifespan != InjectionLifespan.Singleton)
             return InstantiateValue(type);
@@ -57,11 +58,11 @@ public class InjectionTypeDefinitionEntry : InjectionEntry
         object InstantiateValue(Type targetType)
         {
             if (targetType.GetGenericTypeDefinition() == ImplementationDefinition)
-                return _provider.NewObject(targetType);
+                return provider.NewObject(targetType);
             var parameters = new Type[ImplementationDefinition.GetGenericArguments().Length];
             GenericParameterExtractor.ExtractArguments(
                 targetType, CategoryDefinition, parameters);
-            return _provider.NewObject(ImplementationDefinition.MakeGenericType(parameters));
+            return provider.NewObject(ImplementationDefinition.MakeGenericType(parameters));
         }
     }
 

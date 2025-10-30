@@ -40,7 +40,7 @@ public static class InjectionContainerExtensions
         public TContainer AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
         {
             container.AddInjectionEntry(fromType, fromKey,
-                new InjectionRedirectionEntry(container, toType, toKey));
+                new InjectionRedirectionEntry(toType, toKey));
             return container;
         }
 
@@ -66,11 +66,10 @@ public static class InjectionContainerExtensions
         {
             if (!type.IsGenericTypeDefinition)
                 container.AddInjectionEntry(type, key,
-                    new InjectionTypeEntry(container, lifespan, implementation));
+                    new InjectionTypeEntry(lifespan, implementation));
             else
                 container.AddInjectionEntry(type, key,
-                    new InjectionTypeDefinitionEntry(container, lifespan,
-                        type, implementation));
+                    new InjectionTypeDefinitionEntry(lifespan, type, implementation));
             return container;
         }
 
@@ -176,7 +175,7 @@ public static class InjectionContainerExtensions
             Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
         {
             container.AddInjectionEntry(type, key,
-                new InjectionFactoryEntry<object>(container, lifespan, factory));
+                new InjectionFactoryEntry<object>(lifespan, factory));
             return container;
         }
 
@@ -191,7 +190,7 @@ public static class InjectionContainerExtensions
             InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
         {
             container.AddInjectionEntry(typeof(TInjection), key,
-                new InjectionFactoryEntry<TInjection>(container, lifespan, factory));
+                new InjectionFactoryEntry<TInjection>(lifespan, factory));
             return container;
         }
 
@@ -285,7 +284,7 @@ public static class InjectionContainerExtensions
         /// <param name="toKey">Key to redirect to.</param>
         public bool TryAddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
             => container.TryAddInjectionEntry(fromType, fromKey,
-                new InjectionRedirectionEntry(container, toType, toKey));
+                new InjectionRedirectionEntry(toType, toKey));
 
         /// <summary>
         /// Add a redirection from one type/key to another type/key.
@@ -309,11 +308,10 @@ public static class InjectionContainerExtensions
         {
             if (!type.IsGenericTypeDefinition)
                 return container.TryAddInjectionEntry(type, key,
-                    new InjectionTypeEntry(container, lifespan, implementation));
+                    new InjectionTypeEntry(lifespan, implementation));
 
             return container.TryAddInjectionEntry(type, key,
-                new InjectionTypeDefinitionEntry(container, lifespan,
-                    type, implementation));
+                new InjectionTypeDefinitionEntry(lifespan, type, implementation));
         }
 
         /// <summary>
@@ -416,7 +414,7 @@ public static class InjectionContainerExtensions
         public bool TryAddInjection(InjectionLifespan lifespan,
             Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
             => container.TryAddInjectionEntry(type, key,
-                new InjectionFactoryEntry<object>(container, lifespan, factory));
+                new InjectionFactoryEntry<object>(lifespan, factory));
 
         /// <summary>
         /// Add the specified factory to this container.
@@ -428,7 +426,7 @@ public static class InjectionContainerExtensions
         public bool TryAddInjection<TInjection>(InjectionLifespan lifespan,
             InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
             => container.TryAddInjectionEntry(typeof(TInjection), key,
-                new InjectionFactoryEntry<TInjection>(container, lifespan, factory));
+                new InjectionFactoryEntry<TInjection>(lifespan, factory));
 
         /// <summary>
         /// Add the specified factory as a transient injection to this container.
