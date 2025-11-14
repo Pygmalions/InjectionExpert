@@ -7,7 +7,7 @@ namespace InjectionExpert.Injectors;
 [RequiresDynamicCode("`System.Reflection.Emit` is used in this class.")]
 public partial class ConstructorInjector
 {
-    private static readonly DynamicResourceCacheForType<ConstructorInjector>
+    private static readonly DynamicResourceForType<ConstructorInjector>
         Cache = new(CreateInjector, moduleNamePrefix: "GeneratedConstructorInjectors_");
 
     /// <summary>
@@ -19,10 +19,10 @@ public partial class ConstructorInjector
     
     private Type TargetType { get; }
     
-    private readonly Func<object, IInjectionProvider, InjectionTarget?> _functor;
+    private readonly Func<object, IInjectionProvider, bool> _functor;
     
     private ConstructorInjector(
-        Type targetType, Func<object, IInjectionProvider, InjectionTarget?> functor)
+        Type targetType, Func<object, IInjectionProvider, bool> functor)
     {
         TargetType = targetType;
         _functor = functor;
@@ -33,46 +33,26 @@ public partial class ConstructorInjector
     /// </summary>
     /// <param name="target">Uninitialized instance.</param>
     /// <param name="provider">Provider to get injections from.</param>
-    /// <param name="missing">
-    /// The injection that cannot be found from the provider.
-    /// It will be the default value if this method returns true.
-    /// </param>
     /// <returns>
     /// True if the type has been successfully instantiated,
     /// false if any injection requirement cannot be satisfied.
     /// </returns>
-    public bool TryInject(object target, IInjectionProvider provider, out InjectionTarget missing)
-    {
-        var requester = _functor(target, provider);
-        if (requester != null)
-        {
-            missing = requester.Value;
-            return false;
-        }
-
-        missing = default;
-        return true;
-    }
+    public bool TryInject(object target, IInjectionProvider provider)
+        => _functor(target, provider);
 
     /// <summary>
     /// Try to instantiate an instance of the specific type with the given provider.
     /// </summary>
     /// <param name="target">Instantiated instance.</param>
     /// <param name="provider">Provider to get injections from.</param>
-    /// <param name="missing">
-    /// The injection that cannot be found from the provider.
-    /// It will be the default value if this method returns true.
-    /// </param>
     /// <returns>
     /// True if the type has been successfully instantiated,
     /// false if any injection requirement cannot be satisfied.
     /// </returns>
-    public bool TryInject(
-        [MaybeNullWhen(false)] out object target,
-        IInjectionProvider provider, out InjectionTarget missing)
+    public bool TryInject([MaybeNullWhen(false)] out object target, IInjectionProvider provider)
     {
         target = RuntimeHelpers.GetUninitializedObject(TargetType);
-        if (TryInject(target, provider, out missing))
+        if (TryInject(target, provider))
             return true;
         target = null;
         return false;

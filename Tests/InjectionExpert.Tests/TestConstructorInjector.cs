@@ -31,7 +31,7 @@ public class TestConstructorInjector
 
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionClass))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubOneConstructorInjectionClass?)instance;
 
@@ -71,7 +71,7 @@ public class TestConstructorInjector
             .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubTwoConstructorInjectionClass))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
         var target = (StubTwoConstructorInjectionClass?)instance;
 
         using (Assert.EnterMultipleScope())
@@ -94,7 +94,7 @@ public class TestConstructorInjector
             .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionClass))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubOneConstructorInjectionClass?)instance;
 
@@ -121,7 +121,7 @@ public class TestConstructorInjector
             .AddSingleton("Sample");
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionStruct))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubOneConstructorInjectionStruct)instance!;
 
@@ -155,7 +155,7 @@ public class TestConstructorInjector
             .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubTwoConstructorInjectionStruct))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubTwoConstructorInjectionStruct)instance!;
 
@@ -176,7 +176,7 @@ public class TestConstructorInjector
             .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionStruct))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubOneConstructorInjectionStruct?)instance!;
 
@@ -203,7 +203,7 @@ public class TestConstructorInjector
             .AddSingleton(1);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDefaultArguments))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
         
         var target = (StubWithDefaultArguments?)instance;
 
@@ -221,7 +221,7 @@ public class TestConstructorInjector
         var container = new InjectionContainer();
         var succeeded = ConstructorInjector
             .For(typeof(StubOneConstructorInjectionClass))
-            .TryInject(out _, container, out _);
+            .TryInject(out _, container);
         Assert.That(succeeded, Is.False);
     }
 
@@ -233,7 +233,7 @@ public class TestConstructorInjector
             .AddSingleton(0.5);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDefaultArguments))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubWithDefaultArguments?)instance;
 
@@ -260,7 +260,7 @@ public class TestConstructorInjector
             .AddSingleton(1);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithDecimalDefaultArguments))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubWithDecimalDefaultArguments?)instance;
         
@@ -283,7 +283,7 @@ public class TestConstructorInjector
             .AddSingleton("Value2", 2);
         var succeeded = ConstructorInjector
             .For(typeof(StubWithKeys))
-            .TryInject(out var instance, container, out _);
+            .TryInject(out var instance, container);
 
         var target = (StubWithKeys?)instance;
 

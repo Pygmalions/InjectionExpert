@@ -1,13 +1,14 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using EmitToolbox.Extensions;
 using EmitToolbox.Framework;
+using EmitToolbox.Framework.Extensions;
+using EmitToolbox.Framework.Symbols;
+using EmitToolbox.Framework.Symbols.Literals;
+using EmitToolbox.Framework.Utilities;
 using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Injectors;
-
-using InjectionItem = (object, InjectionLifespan);
 
 public partial class MemberInjector
 {
@@ -31,7 +32,7 @@ public partial class MemberInjector
          * Therefore, it is necessary to grant access to those assemblies as well.
          */
         foreach (var argumentType in type.GetGenericArguments())
-            assemblyContext.IgnoreAccessChecksToAssembly(argumentType.Assembly);
+            assemblyContext.IgnoreVisibilityChecksToAssembly(argumentType.Assembly);
 
         return new MemberInjector(type, functor, injections);
     }
@@ -48,25 +49,35 @@ public partial class MemberInjector
 
         injections = new MultiDictionary<(Type Type, object? Key), MemberInfo>();
 
-        var methodContext = typeContext.FunctorBuilder.DefineStatic("TryInject",
-            [
-                ParameterDefinition.Value<object>("target"),
-                ParameterDefinition.Value<IInjectionProvider>("provider"),
-                ParameterDefinition.Value<bool>("onlyNullMembers")
-            ],
-            ResultDefinition.Value<InjectionTarget?>());
+        var method = typeContext.MethodFactory.Static.DefineFunctor<InjectionTarget?>("TryInject",
+        [
+            ParameterDefinition.Value<object>("target"),
+            ParameterDefinition.Value<IInjectionProvider>("provider"),
+            ParameterDefinition.Value<bool>("onlyNullMembers")
+        ]);
 
-        var code = methodContext.Code;
+        var argumentBoxedTarget = method.Argument<object>(0);
+        var argumentProvider = method.Argument<IInjectionProvider>(1);
+        var argumentOnlyNullMembers = method.Argument<bool>(2);
 
-        // Local variable to store the injection.
-        var context = new EmittingContext(type, code);
-
-        code.LoadArgument_0();
+        VariableSymbol variableUnboxedTarget;
         if (type.IsValueType)
-            code.Emit(OpCodes.Unbox_Any, type);
-        code.StoreLocal(context.VariableTarget);
+        {
+            variableUnboxedTarget = method.Variable(type.MakeByRefType());
+            argumentBoxedTarget
+                .Unbox(type, true)
+                .ToSymbol(variableUnboxedTarget);
+        }
+        else
+        {
+            variableUnboxedTarget = method.Variable(type);
+            variableUnboxedTarget.AssignContent(argumentBoxedTarget.CastTo(type));
+        }
 
-        var labelFailed = code.DefineLabel();
+        var variableInjectionItem = method.Variable<InjectionItem?>();
+        var variableInjectionRequester = method.Variable<InjectionTarget>();
+
+        var labelFailed = method.DefineLabel();
 
         var options = type.GetCustomAttribute<InjectionOptionsAttribute>();
 
@@ -77,97 +88,100 @@ public partial class MemberInjector
             var attribute = member.GetCustomAttribute<InjectionAttribute>();
             var required = member.IsDefined(typeof(RequiredMemberAttribute));
 
-            var labelContinue = code.DefineLabel();
+            var labelContinue = method.DefineLabel();
+            var labelInjection = method.DefineLabel();
 
-            Type injectionType;
+            (ISymbol<MemberInfo> Symbol, Type Type) requester = member switch
+            {
+                FieldInfo field => (method.Value(field), field.FieldType),
+                PropertyInfo property => (method.Value(property), property.PropertyType),
+                _ => throw new Exception($"Unsupported injecting member type {member.MemberType}.")
+            };
 
-            var labelInjection = code.DefineLabel();
+            if (!type.IsValueType || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                // Handle `onlyNullMembers` option.
+                using (method.If(argumentOnlyNullMembers))
+                {
+                    // Check if the member is null.
+                    var symbolIsNull = member switch
+                    {
+                        FieldInfo field => variableUnboxedTarget.Field(field)
+                            .HasNullValue(),
+                        PropertyInfo property => variableUnboxedTarget.GetPropertyValue(property)
+                            .HasNullValue(),
+                        _ => throw new Exception($"Unsupported injecting member type {member.MemberType}.")
+                    };
 
-            // Argument `onlyNullMembers`
-            code.LoadArgument_2();
-            code.GotoIfFalse(labelInjection);
+                    // Skip the injection if the member is not null.
+                    labelContinue.GotoIfFalse(symbolIsNull);
+                }
+            }
 
-            // Check if the member is null.
+            labelInjection.Mark();
+
+            ISymbol<MemberInfo> symbolRequester = member switch
+            {
+                FieldInfo fieldRequester => method.Value(fieldRequester),
+                PropertyInfo propertyRequester => method.Value(propertyRequester),
+                _ => throw new Exception($"Unsupported requester type '{member.GetType()}'.")
+            };
+
+            variableInjectionRequester.AssignNew(
+                typeof(InjectionTarget).GetConstructor(
+                    [typeof(MemberInfo), typeof(object)])!,
+                [symbolRequester, argumentBoxedTarget]);
+
+            ISymbol<object> symbolKey = attribute?.Key is { } key
+                ? LiteralSymbolFactory.Create(method, key).ToObject()
+                : method.Null<object>();
+
+            argumentProvider
+                .Invoke(
+                    target => target.GetInjectionItem(
+                        Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
+                    [method.Value(requester.Type), symbolKey, variableInjectionRequester])
+                .ToSymbol(variableInjectionItem);
+
+            (required ? labelFailed : labelContinue)
+                .GotoIfFalse(variableInjectionItem.HasValue());
+
             switch (member)
             {
                 case FieldInfo field:
-                    EmitExamineIfFieldIsNull(context, field);
+                    variableUnboxedTarget.Field(field).AssignValue(
+                        variableInjectionItem
+                            .GetValue()
+                            .GetPropertyValue(target => target.Instance)
+                            .ConvertTo(field.FieldType));
                     break;
                 case PropertyInfo property:
-                    EmitExamineIfPropertyIsNull(context, property);
+                    variableUnboxedTarget.SetPropertyValue(
+                        property,
+                        variableInjectionItem
+                            .GetValue()
+                            .GetPropertyValue(target => target.Instance)
+                            .ConvertTo(property.PropertyType)
+                    );
                     break;
                 default:
                     throw new Exception($"Unsupported injecting member type {member.MemberType}.");
             }
 
-            // Skip the injection if the member is not null.
-            code.GotoIfFalse(labelContinue);
+            injections.Add((requester.Type, attribute?.Key), member);
 
-            code.MarkLabel(labelInjection);
-
-            switch (member)
-            {
-                case FieldInfo field:
-                    injectionType = field.FieldType;
-                    EmitGettingInjection(context, injectionType, attribute?.Key, field);
-                    code.If(branch =>
-                        {
-                            branch.LoadLocalAddress(context.VariableNullableInjection);
-                            branch.NullableHasValue<InjectionItem>();
-                        },
-                        whenFalse: required
-                            ? branch => branch.Goto(labelFailed)
-                            : branch => branch.Goto(labelContinue));
-                    EmitInjectField(context, field);
-                    break;
-                case PropertyInfo property:
-                    injectionType = property.PropertyType;
-                    EmitGettingInjection(context, injectionType, attribute?.Key, property);
-                    code.If(branch =>
-                        {
-                            branch.LoadLocalAddress(context.VariableNullableInjection);
-                            branch.NullableHasValue<InjectionItem>();
-                        },
-                        whenFalse: required
-                            ? branch => branch.Goto(labelFailed)
-                            : branch => branch.Goto(labelContinue));
-                    EmitInjectProperty(context, property);
-                    break;
-                default:
-                    throw new Exception($"Unsupported injecting member type {member.MemberType}.");
-            }
-
-            injections.Add((injectionType, attribute?.Key), member);
-
-            code.MarkLabel(labelContinue);
+            labelContinue.Mark();
         }
 
-        var labelReturn = code.DefineLabel();
+        var labelReturn = method.DefineLabel();
 
-        // If `this` is a boxed value type, then the modified result in the local variable should be copied back.
-        if (type.IsValueType)
-        {
-            code.LoadArgument_0();
-            code.Unbox(type);
-            code.LoadLocalAddress(context.VariableTarget);
-            code.Emit(OpCodes.Cpobj, type);
-        }
+        labelReturn.Goto();
 
-        // Construct a null missing requester.
-        code.LoadLocalAddress(context.VariableMissingRequester);
-        code.Emit(OpCodes.Initobj, typeof(InjectionTarget?));
-        code.LoadLocal(context.VariableMissingRequester);
+        labelFailed.Mark();
+        method.Return(variableInjectionRequester.ToNullable());
 
-        code.Goto(labelReturn);
-
-        code.MarkLabel(labelFailed);
-
-        // Construct a missing requester with the last requester.
-        code.LoadLocal(context.VariableLatestTarget);
-        code.NewObject(typeof(InjectionTarget?).GetConstructor([typeof(InjectionTarget)])!);
-
-        code.MarkLabel(labelReturn);
-        code.MethodReturn();
+        labelReturn.Mark();
+        method.Return(method.Variable<InjectionTarget?>());
 
         typeContext.Build();
 
@@ -193,159 +207,5 @@ public partial class MemberInjector
             member.IsDefined(typeof(RequiredMemberAttribute)))
             return true;
         return options?.WithAttributedMembers != false && attribute != null;
-    }
-
-    private static void EmitGettingInjection(in EmittingContext context, Type type, object? key,
-        MemberInfo requester)
-    {
-        var code = context.Code;
-
-        // Load injection source.
-        code.LoadArgument_1();
-        code.LoadTypeInfo(type);
-        code.LoadBoxedLiteral(key);
-
-        // Load injection target.
-        switch (requester)
-        {
-            case FieldInfo field:
-                code.LoadFieldInfo(field);
-                break;
-            case PropertyInfo property:
-                code.LoadPropertyInfo(property);
-                break;
-            default:
-                throw new Exception("Unsupported requester type.");
-        }
-        code.LoadArgument_0();
-        code.NewObject(typeof(InjectionTarget).GetConstructor(
-            [typeof(MemberInfo), typeof(object)])!);
-        code.StoreLocal(context.VariableLatestTarget);
-
-        code.LoadLocal(context.VariableLatestTarget);
-
-        // Query the container for specific injection.
-        code.Emit(OpCodes.Callvirt,
-            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjectionItem))!);
-
-        // Store the injection to the variable.
-        code.StoreLocal(context.VariableNullableInjection);
-    }
-
-    private static void EmitExamineIfFieldIsNull(in EmittingContext context, FieldInfo field)
-    {
-        var code = context.Code;
-
-        if (!field.FieldType.IsValueType)
-        {
-            context.EmitLoadTarget();
-            code.LoadField(field);
-            code.LoadNull();
-            code.Emit(OpCodes.Ceq);
-        }
-        else if (field.FieldType.IsGenericType &&
-                 field.FieldType.GetGenericTypeDefinition() == typeof(Nullable<>))
-        {
-            context.EmitLoadTarget();
-            code.LoadFieldAddress(field);
-
-            code.NullableHasValue(field.FieldType.GetGenericArguments()[0]);
-            code.LoadLiteral(false);
-            code.Emit(OpCodes.Ceq);
-        }
-        else
-        {
-            code.LoadLiteral(true);
-        }
-    }
-
-    private static void EmitExamineIfPropertyIsNull(in EmittingContext context, PropertyInfo property)
-    {
-        var code = context.Code;
-
-        if (property.GetMethod == null)
-        {
-            code.LoadLiteral(true);
-            return;
-        }
-
-        if (!property.PropertyType.IsValueType)
-        {
-            context.EmitLoadTarget();
-            code.LoadProperty(property);
-            code.LoadNull();
-            code.Emit(OpCodes.Ceq);
-        }
-        else if (property.PropertyType.IsGenericType &&
-                 property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
-        {
-            context.EmitLoadTarget();
-            code.LoadProperty(property);
-            code.ToAddress(property.PropertyType);
-            code.NullableHasValue(property.PropertyType.GetGenericArguments()[0]);
-
-            code.LoadLiteral(false);
-            code.Emit(OpCodes.Ceq);
-        }
-        else
-        {
-            code.LoadLiteral(true);
-        }
-    }
-
-    private static void EmitInjectField(in EmittingContext context, FieldInfo field)
-    {
-        var code = context.Code;
-
-        context.EmitLoadTarget();
-
-        code.LoadLocalAddress(context.VariableNullableInjection);
-        code.NullableGetValue<InjectionItem>();
-        code.ToAddress<InjectionItem>();
-        code.LoadField(typeof(InjectionItem).GetField("Item1")!);
-
-        if (field.FieldType.IsValueType)
-            code.Emit(OpCodes.Unbox_Any, field.FieldType);
-        code.Emit(OpCodes.Stfld, field);
-    }
-
-    private static void EmitInjectProperty(in EmittingContext context, PropertyInfo property)
-    {
-        var code = context.Code;
-
-        context.EmitLoadTarget();
-
-        code.LoadLocalAddress(context.VariableNullableInjection);
-        code.NullableGetValue<InjectionItem>();
-        code.ToAddress<InjectionItem>();
-        code.LoadField(typeof(InjectionItem).GetField("Item1")!);
-
-        if (property.PropertyType.IsValueType)
-            code.Emit(OpCodes.Unbox_Any, property.PropertyType);
-        code.Emit(property.SetMethod!.IsVirtual ? OpCodes.Callvirt : OpCodes.Call,
-            property.SetMethod!);
-    }
-
-    private readonly struct EmittingContext(Type type, ILGenerator code)
-    {
-        public ILGenerator Code { get; } = code;
-        public LocalBuilder VariableTarget { get; } = code.DeclareLocal(type);
-
-        public LocalBuilder VariableNullableInjection { get; }
-            = code.DeclareLocal(typeof(InjectionItem?));
-
-        public LocalBuilder VariableLatestTarget { get; }
-            = code.DeclareLocal(typeof(InjectionTarget));
-
-        public LocalBuilder VariableMissingRequester { get; }
-            = code.DeclareLocal(typeof(InjectionTarget?));
-
-        public void EmitLoadTarget()
-        {
-            if (type.IsValueType)
-                Code.LoadLocalAddress(VariableTarget);
-            else
-                Code.LoadLocal(VariableTarget);
-        }
     }
 }

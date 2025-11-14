@@ -107,7 +107,8 @@ public static class InjectionProviderExtensions
             using var scope = provider.NewScope(new InjectionTarget(target));
 
             var type = target.GetType();
-            if (!ConstructorInjector.For(type).TryInject(target, scope, out var missing) ||
+            var missing = default(InjectionTarget);
+            if (!ConstructorInjector.For(type).TryInject(target, scope) ||
                 !MemberInjector.For(type).TryInject(target, scope, out missing))
                 throw new InjectionFailureException(type, provider, missing);
         }
@@ -124,7 +125,8 @@ public static class InjectionProviderExtensions
         {
             using var scope = provider.NewScope(new InjectionTarget(type));
 
-            if (!ConstructorInjector.For(type).TryInject(out var instance, scope, out var missing) ||
+            var missing = default(InjectionTarget);
+            if (!ConstructorInjector.For(type).TryInject(out var instance, scope) ||
                 !MemberInjector.For(type).TryInject(instance, scope, out missing))
                 throw new InjectionFailureException(type, provider, missing);
             return instance;

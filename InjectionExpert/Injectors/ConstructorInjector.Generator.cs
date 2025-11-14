@@ -1,11 +1,12 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using EmitToolbox.Extensions;
 using EmitToolbox.Framework;
+using EmitToolbox.Framework.Extensions;
+using EmitToolbox.Framework.Symbols;
+using EmitToolbox.Framework.Symbols.Literals;
+using EmitToolbox.Framework.Utilities;
 
 namespace InjectionExpert.Injectors;
-
-using InjectionItem = (object, InjectionLifespan);
 
 public partial class ConstructorInjector
 {
@@ -18,9 +19,9 @@ public partial class ConstructorInjector
     {
         var functor = GenerateInjector(assemblyContext, type)
             .GetMethod("TryInject")!
-            .CreateDelegate<Func<object, IInjectionProvider, InjectionTarget?>>();
+            .CreateDelegate<Func<object, IInjectionProvider, bool>>();
 
-        if (!type.IsGenericType) 
+        if (!type.IsGenericType)
             return new ConstructorInjector(type, functor);
 
         /* Note:
@@ -29,7 +30,7 @@ public partial class ConstructorInjector
          * Therefore, it is necessary to grant access to those assemblies as well.
          */
         foreach (var argumentType in type.GetGenericArguments())
-            assemblyContext.IgnoreAccessChecksToAssembly(argumentType.Assembly);
+            assemblyContext.IgnoreVisibilityChecksToAssembly(argumentType.Assembly);
 
         return new ConstructorInjector(type, functor);
     }
@@ -37,211 +38,177 @@ public partial class ConstructorInjector
     private static Type GenerateInjector(DynamicAssembly assemblyContext, Type type)
     {
         if (type.IsPrimitive || type == typeof(string))
-            throw new InvalidOperationException($"Cannot inject primitive type or string \"{type.Name}\".");
+            throw new InvalidOperationException($"Cannot inject primitive type or string '{type.Name}'.");
         if (type.IsAbstract || type.IsInterface)
-            throw new InvalidOperationException($"Cannot inject abstract or interface type \"{type.Name}\".");
+            throw new InvalidOperationException($"Cannot inject abstract or interface type '{type.Name}'.");
         if (type.IsGenericTypeDefinition)
-            throw new InvalidOperationException($"Cannot inject generic type definition \"{type.Name}\".");
+            throw new InvalidOperationException($"Cannot inject generic type definition '{type.Name}'.");
 
-        var typeContext = assemblyContext.DefineClass("ConstructorInjector_" + type);
+        var dynamicType = assemblyContext.DefineClass("ConstructorInjector_" + type);
 
-        var methodContext = typeContext.FunctorBuilder.DefineStatic("TryInject",
-            [
-                ParameterDefinition.Value<object>("target"),
-                ParameterDefinition.Value<IInjectionProvider>("provider")
-            ],
-            ResultDefinition.Value<InjectionTarget?>());
+        var dynamicMethod = dynamicType.MethodFactory.Static.DefineFunctor<bool>("TryInject",
+        [
+            ParameterDefinition.Value<object>("target"),
+            ParameterDefinition.Value<IInjectionProvider>("provider")
+        ]);
 
-        var code = methodContext.Code;
+        var argumentBoxedTarget = dynamicMethod.Argument<object>(0);
+        var argumentProvider = dynamicMethod.Argument<IInjectionProvider>(1);
 
         var constructors = type
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .OrderBy(constructor => constructor.GetParameters().Length).ToList();
+            .OrderBy(constructor => constructor.GetParameters().Length)
+            .ToList();
 
-        var maxVariableCount = constructors[^1].GetParameters().Length;
+        var variablesInjectionItem = Enumerable
+            .Range(0, constructors[^1].GetParameters().Length)
+            .Select(_ => dynamicMethod.Variable<InjectionItem?>())
+            .ToList();
 
-        var injectionVariables = new List<LocalBuilder>(maxVariableCount);
-        for (var index = 0; index < maxVariableCount; ++index)
+        VariableSymbol variableUnboxedTarget;
+        if (!type.IsValueType)
         {
-            injectionVariables.Add(code.DeclareLocal(typeof(InjectionItem?)));
+            variableUnboxedTarget = dynamicMethod.Variable(type);
+            variableUnboxedTarget.AssignContent(argumentBoxedTarget.ConvertTo(type));
+        }
+        else
+        {
+            variableUnboxedTarget = dynamicMethod.Variable(type.MakeByRefType());
+            variableUnboxedTarget.AssignContent(argumentBoxedTarget.Unbox(type, true));
         }
 
-        var context = new EmittingContext(type, code)
+        var context = new EmittingContext
         {
-            NullableInjectionVariables = injectionVariables,
+            TargetType = type,
+            Method = dynamicMethod,
+            ArgumentBoxedTarget = argumentBoxedTarget,
+            ArgumentProvider = argumentProvider,
+            VariableUnboxedTarget = variableUnboxedTarget,
+            VariablesInjectionItem = variablesInjectionItem,
+            VariableInjectionRequester = dynamicMethod.Variable<InjectionTarget>(),
+            VariablesParameterInfo = dynamicMethod.Variable<ParameterInfo[]>(),
         };
 
         foreach (var constructor in constructors)
         {
-            EmitTryConstructor(ref context, constructor);
+            EmitTryConstructor(context, constructor);
         }
 
-        if (type.IsValueType)
-        {
-            code.LoadArgument_0();
-            code.Unbox(type);
-            code.LoadLocalAddress(context.VariableTarget);
-            code.Emit(OpCodes.Cpobj, type);
-        }
+        dynamicMethod.Return(dynamicMethod.Value(false));
 
-        code.LoadLocal(context.VariableLatestTarget);
-        code.NewObject(typeof(InjectionTarget?).GetConstructor([typeof(InjectionTarget)])!);
-        code.MethodReturn();
+        dynamicType.Build();
 
-        typeContext.Build();
-
-        return typeContext.BuildingType;
-    }
-
-    private static void EmitTryConstructor(ref EmittingContext context, ConstructorInfo constructor)
-    {
-        var code = context.Code;
-
-        code.LoadConstructorInfo(constructor);
-        code.CallVirtual(typeof(MethodBase).GetMethod(nameof(MethodBase.GetParameters))!);
-        code.StoreLocal(context.VariableParameters);
-
-        var labelFailed = code.DefineLabel();
-
-        var parameters = constructor.GetParameters();
-        for (var index = 0; index < parameters.Length; ++index)
-        {
-            var parameter = parameters[index];
-            var attribute = parameter.GetCustomAttribute<InjectionAttribute>();
-            var injectionType = parameter.ParameterType;
-            var variableNullableInjection = context.NullableInjectionVariables[index];
-
-            EmitGettingInjection(ref context, injectionType, index, attribute?.Key);
-            // Load the injection to check if it is null.
-            code.LoadLocalAddress(variableNullableInjection);
-            code.NullableHasValue<InjectionItem>();
-
-            if (!parameter.HasDefaultValue)
-                code.GotoIfFalse(labelFailed);
-            else
-            {
-                var labelInjection = code.DefineLabel();
-                code.GotoIfTrue(labelInjection);
-                code.LoadParameterDefaultValue(parameter);
-                if (injectionType.IsValueType)
-                    code.Emit(OpCodes.Box, injectionType);
-                code.LoadLiteral(InjectionLifespan.Transient);
-                code.NewObject(typeof(InjectionItem).GetConstructor(
-                    [typeof(object), typeof(InjectionLifespan)])!);
-                code.ToNullable<InjectionItem>();
-                code.StoreLocal(variableNullableInjection);
-                code.MarkLabel(labelInjection);
-            }
-        }
-
-        // Load target object.
-        context.EmitLoadTarget();
-
-        var variableInjection = code.DeclareLocal(typeof(InjectionItem));
-
-        // Load arguments.
-        for (var index = 0; index < parameters.Length; ++index)
-        {
-            code.LoadLocalAddress(context.NullableInjectionVariables[index]);
-            code.NullableGetValue<InjectionItem>();
-            code.StoreLocal(variableInjection);
-            code.LoadLocalAddress(variableInjection);
-            code.LoadField(typeof(InjectionItem).GetField(nameof(InjectionItem.Item1))!);
-            if (parameters[index].ParameterType.IsValueType)
-                code.Emit(OpCodes.Unbox_Any, parameters[index].ParameterType);
-        }
-
-        // Invoke the constructor.
-        code.Call(constructor);
-
-        if (context.Type.IsValueType)
-        {
-            code.LoadArgument_0();
-            code.Unbox(context.Type);
-            code.LoadLocalAddress(context.VariableTarget);
-            code.Emit(OpCodes.Cpobj, context.Type);
-        }
-
-        code.LoadLocalAddress(context.VariableMissingRequester);
-        code.Emit(OpCodes.Initobj, typeof(InjectionTarget?));
-        code.LoadLocal(context.VariableMissingRequester);
-        code.MethodReturn();
-
-        code.MarkLabel(labelFailed);
-    }
-
-    // Generate code for getting injection from the source.
-    private static void EmitGettingInjection(ref EmittingContext context,
-        Type category, int parameterIndex, object? key)
-    {
-        var code = context.Code;
-
-        // Load injection source.
-        code.LoadArgument_1();
-
-        // Load injection type.
-        code.LoadTypeInfo(category);
-        // Load injection key.
-        code.LoadBoxedLiteral(key);
-
-        // Load injection target.
-        code.LoadLocal(context.VariableParameters);
-        code.LoadLiteral(parameterIndex);
-        code.LoadArrayElement_Class();
-        code.LoadArgument_0();
-        code.NewObject(typeof(InjectionTarget).GetConstructor(
-            [typeof(ParameterInfo), typeof(object)])!);
-        code.StoreLocal(context.VariableLatestTarget);
-
-        code.LoadLocal(context.VariableLatestTarget);
-
-        // Query the container for specific injection.
-        code.CallVirtual(
-            typeof(IInjectionProvider).GetMethod(nameof(IInjectionProvider.GetInjectionItem))!);
-
-        // Store the injection to the variable.
-        code.StoreLocal(context.NullableInjectionVariables[parameterIndex]);
+        return dynamicType.BuildingType;
     }
 
     private readonly struct EmittingContext
     {
-        public ILGenerator Code { get; }
+        public required Type TargetType { get; init; }
 
-        public Type Type { get; }
+        public required DynamicMethod<Action<ISymbol<bool>>> Method { get; init; }
 
-        public LocalBuilder VariableTarget { get; }
+        public required List<VariableSymbol<InjectionItem?>> VariablesInjectionItem { get; init; }
 
-        public required List<LocalBuilder> NullableInjectionVariables { get; init; }
+        public required ArgumentSymbol<object> ArgumentBoxedTarget { get; init; }
 
-        public LocalBuilder VariableLatestTarget { get; }
+        public required ArgumentSymbol<IInjectionProvider> ArgumentProvider { get; init; }
 
-        public LocalBuilder VariableParameters { get; }
+        public required VariableSymbol VariableUnboxedTarget { get; init; }
 
-        public LocalBuilder VariableMissingRequester { get; }
+        public required VariableSymbol<InjectionTarget> VariableInjectionRequester { get; init; }
 
-        public EmittingContext(Type type, ILGenerator code)
+        public required VariableSymbol<ParameterInfo[]> VariablesParameterInfo { get; init; }
+    }
+
+    private static void EmitTryConstructor(
+        EmittingContext context, ConstructorInfo constructor)
+    {
+        var method = context.Method;
+
+        method.Value(constructor)
+            .Invoke(target => target.GetParameters())
+            .ToSymbol(context.VariablesParameterInfo);
+
+        var labelEndOfThisAttempt = method.DefineLabel();
+
+        foreach (var (index, parameter) in constructor.GetParameters().Index())
         {
-            Code = code;
-            Type = type;
+            var attribute = parameter.GetCustomAttribute<InjectionAttribute>();
 
-            VariableTarget = code.DeclareLocal(type);
-            VariableLatestTarget = code.DeclareLocal(typeof(InjectionTarget));
-            VariableParameters = code.DeclareLocal(typeof(ParameterInfo[]));
-            VariableMissingRequester = code.DeclareLocal(typeof(InjectionTarget?));
-            NullableInjectionVariables = (List<LocalBuilder>)[];
+            ISymbol<object?> symbolKey = attribute?.Key is null
+                ? method.Null<object>()
+                : LiteralSymbolFactory.Create(method, attribute.Key).ToObject();
 
-            code.LoadArgument_0();
-            if (type.IsValueType)
-                code.UnboxAny(type);
-            code.StoreLocal(VariableTarget);
+            // Load injection target.
+            context.VariableInjectionRequester.AssignNew(
+                () => new InjectionTarget(Any<ParameterInfo>.Value, Any<object>.Value),
+                [
+                    context.VariablesParameterInfo.ElementAt(index),
+                    context.ArgumentBoxedTarget
+                ]);
+
+            var variableInjectionItem = context.VariablesInjectionItem[index];
+
+            context.ArgumentProvider
+                .Invoke(
+                    target => target.GetInjectionItem(
+                        Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
+                    [method.Value(parameter.ParameterType), symbolKey, context.VariableInjectionRequester])
+                .ToSymbol(variableInjectionItem);
+
+            using (method.If(variableInjectionItem.HasValue().Not()))
+            {
+                if (!parameter.HasDefaultValue)
+                {
+                    labelEndOfThisAttempt.Goto();
+                }
+                else
+                {
+                    var variableItem = method.New(
+                        () => new InjectionItem(Any<object>.Value, Any<InjectionLifespan>.Value),
+                        [
+                            method.Null<object>(),
+                            method.Value(InjectionLifespan.Transient)
+                        ]);
+
+                    var variableDefaultParameter = 
+                        LiteralSymbolFactory.Create(method, parameter.DefaultValue)
+                            .ToObject()
+                            .ToSymbol();
+                    
+                    if (parameter.DefaultValue != null)
+                        variableItem.SetPropertyValue(
+                            target => target.Instance,
+                            variableDefaultParameter);
+
+                    variableItem.ToNullable(variableInjectionItem);
+                }
+            }
         }
 
-        public void EmitLoadTarget()
+        context.VariableUnboxedTarget.LoadAsTarget();
+
+        foreach (var (index, parameter) in constructor.GetParameters().Index())
         {
-            if (Type.IsValueType)
-                Code.LoadLocalAddress(VariableTarget);
-            else
-                Code.LoadLocal(VariableTarget);
+            context.VariablesInjectionItem[index]
+                .GetValue()
+                .GetPropertyValue(target => target.Instance)
+                .ConvertTo(parameter.ParameterType)
+                .LoadForParameter(parameter);
         }
+
+        method.Code.Emit(OpCodes.Call, constructor);
+        
+        context.VariableUnboxedTarget.AssignNew(
+            constructor,
+            constructor.GetParameters().Index().Select(pair =>
+                context.VariablesInjectionItem[pair.Index]
+                    .GetValue()
+                    .GetPropertyValue(target => target.Instance)
+                    .ConvertTo(pair.Item.ParameterType)));
+
+        method.Return(method.Value(true));
+
+        labelEndOfThisAttempt.Mark();
     }
 }
