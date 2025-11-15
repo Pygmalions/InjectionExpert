@@ -73,7 +73,7 @@ public static class InjectionContainerExtensions
         public TContainer AddInjection(InjectionLifespan lifespan,
             Type type, Type implementation, object? key = null)
         {
-            if (!type.IsGenericTypeDefinition)
+            if (!type.ContainsGenericParameters)
                 container.AddInjection(type, key,
                     new InjectionTypeEntry(lifespan, implementation));
             else

@@ -141,7 +141,7 @@ public class TestInjectionContainer
     }
 
     [UsedImplicitly]
-    private class SampleGenericClass<TContent> : ISampleGenericInterface<TContent>
+    private class SampleGenericClass<TType> : ISampleGenericInterface<TType>
     {
     }
     
@@ -155,5 +155,18 @@ public class TestInjectionContainer
         
         Assert.That(injection, Is.Not.Null);
         Assert.That(injection, Is.TypeOf<SampleGenericClass<int>>());
+    }
+    
+    [Test]
+    public void GetInjectionItem_GenericOfGeneric_ResolvesGenericDefinition()
+    {
+        var container = new InjectionContainer()
+            .AddSingleton(typeof(ISampleGenericInterface<>).MakeGenericType(typeof(SampleGenericClass<>)), 
+                typeof(SampleGenericClass<>));
+
+        var injection = container.GetInjection(typeof(ISampleGenericInterface<SampleGenericClass<int>>));
+        
+        Assert.That(injection, Is.Not.Null);
+        Assert.That(injection, Is.TypeOf<SampleGenericClass<SampleGenericClass<int>>>());
     }
 }
