@@ -178,7 +178,7 @@ public class InjectionContainer : IInjectionContainer
                     : null;
                 if (currentItem is null)
                 {
-                    if (type is not { IsGenericType: true, IsGenericTypeDefinition: false })
+                    if (currentType is not { IsGenericType: true, IsGenericTypeDefinition: false })
                         return null;
                     currentType = currentType.EraseDeepestGenericArguments();
                     continue;

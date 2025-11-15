@@ -4,7 +4,7 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>0.3.0-dev11152241</Version>
+        <Version>0.3.0-dev11160049</Version>
         <Title>Injection Expert</Title>
         <Authors>Pygmalions</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -22,7 +22,7 @@
     </ItemGroup>
     
     <ItemGroup>
-      <PackageReference Include="EmitToolbox" Version="0.3.0-dev11141658" />
+      <PackageReference Include="EmitToolbox" Version="0.3.0-dev11160018" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
       <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     </ItemGroup>

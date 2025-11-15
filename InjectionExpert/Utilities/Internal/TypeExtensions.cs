@@ -71,7 +71,7 @@ internal static partial class TypeExtensions
 
             Type? ProcessGenericType(Type target)
             {
-                if (!target.IsGenericType)
+                if (target is { IsGenericType: false, ContainsGenericParameters: false })
                     return null;
                 if (target.IsGenericTypeDefinition)
                     return null;
