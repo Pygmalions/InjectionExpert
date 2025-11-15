@@ -176,33 +176,34 @@ public class InjectionContainer : IInjectionContainer
                 var currentItem = _groups.TryGetValue(currentType, out var group)
                     ? currentKey is null ? group.UnkeyedItem : group.KeyedItems?.GetValueOrDefault(currentKey)
                     : null;
-                switch (currentItem?.Entry)
+                if (currentItem is null)
                 {
-                    case InjectionRedirectionEntry redirection:
-                        if (currentItem.CachedRedirection is { } cachedItem)
-                            return cachedItem;
-                        if (currentRedirections >= MaxRedirectionDepth)
-                        {
-                            if (Logger?.IsEnabled(LogLevel.Warning) is true)
-                                Logger.LogWarning(
-                                    "Maximum redirection depth reached when searching for injection: " +
-                                    "{Type} (Key: {Key}). Possible circular redirection detected.",
-                                    type, key);
-                            return null;
-                        }
-
-                        var redirectedItem = InternalSearchItem(redirection.TargetType, redirection.TargetKey,
-                            currentRedirections + 1);
-                        currentItem.CachedRedirection = redirectedItem;
-                        return redirectedItem;
-
-                    case null when type is { IsGenericType: true, IsGenericTypeDefinition: false }:
-                        currentType = type.EraseDeepestGenericArguments();
-                        continue;
-
-                    default:
-                        return currentItem;
+                    if (type is not { IsGenericType: true, IsGenericTypeDefinition: false })
+                        return null;
+                    currentType = currentType.EraseDeepestGenericArguments();
+                    continue;
                 }
+
+                if (currentItem.Entry is not InjectionRedirectionEntry redirection)
+                    return currentItem;
+
+                if (currentItem.CachedRedirection is { } cachedItem)
+                    return cachedItem;
+
+                if (currentRedirections >= MaxRedirectionDepth)
+                {
+                    if (Logger?.IsEnabled(LogLevel.Warning) is true)
+                        Logger.LogWarning(
+                            "Maximum redirection depth reached when searching for injection: " +
+                            "{Type} (Key: {Key}). Possible circular redirection detected.", 
+                            type, key);
+                    return null;
+                }
+
+                var redirectedItem = InternalSearchItem(
+                    redirection.TargetType, redirection.TargetKey, currentRedirections + 1);
+                currentItem.CachedRedirection = redirectedItem;
+                return redirectedItem;
             }
         }
     }

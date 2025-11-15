@@ -1,5 +1,3 @@
-// Agent: Junie, gpt-5-2025-08-07
-
 namespace InjectionExpert.Tests;
 
 [TestFixture, TestOf(typeof(InjectionScope))]

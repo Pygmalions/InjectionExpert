@@ -7,7 +7,7 @@ namespace InjectionExpert.Tests.Entries;
 public class TestInjectionConstantEntry
 {
     [Test]
-    public void GetInjection_Always_ReturnsSameInstance()
+    public void GetInjection_ReturnsSameInstance()
     {
         var instance = new object();
         var entry = new InjectionConstantEntry(instance);

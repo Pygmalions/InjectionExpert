@@ -11,11 +11,11 @@ public class TestMemberInjector
     [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
     private class StubMemberInjectionTarget
     {
-        [Injection] public double DoubleField = 0.0;
-        [Injection] public long LongField = 0;
-        [Injection] public int NumberField = 0;
+        [Injection] public double DoubleField;
+        [Injection] public long LongField;
+        [Injection] public int NumberField;
         [Injection] public string StringField = "";
-        [Injection] public int NumberProperty { get; set; } = 0;
+        [Injection] public int NumberProperty { get; set; }
     }
 
     [Test]
@@ -51,8 +51,8 @@ public class TestMemberInjector
     private class StubMemberInjectionTargetWithRequired
     {
         [Injection] public required double DoubleField;
-        [Injection] public long LongField = 0;
-        [Injection] public int NumberField = 0;
+        [Injection] public long LongField;
+        [Injection] public int NumberField;
         [Injection] public string StringField = "";
         [Injection] public int NumberProperty { get; set; }
     }
@@ -126,7 +126,7 @@ public class TestMemberInjector
     {
         [Injection] public int? IntegerField;
 
-        [Injection] public double? DoubleProperty { get; set; } = null!;
+        [Injection] public double? DoubleProperty { get; set; }
     }
 
     [Test]
@@ -259,12 +259,14 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_UpdateField_And_Property_ByType()
+    public void TryUpdate_UpdateFieldAndProperty()
     {
-        var sample = new StubMemberInjectionTarget();
-        // Initially different values
-        sample.NumberField = 5;
-        sample.NumberProperty = 6;
+        var sample = new StubMemberInjectionTarget
+        {
+            // Initially different values
+            NumberField = 5,
+            NumberProperty = 6
+        };
 
         var updated = MemberInjector.For(typeof(StubMemberInjectionTarget))
             .TryUpdate(sample, typeof(int), null, 42);
@@ -439,7 +441,7 @@ public class TestMemberInjector
         // Verify the members are properties
         foreach (var dep in deps)
         {
-            Assert.That(dep.Member.MemberType == MemberTypes.Property, Is.True);
+            Assert.That(dep.Member.MemberType, Is.EqualTo(MemberTypes.Property));
         }
     }
 }
