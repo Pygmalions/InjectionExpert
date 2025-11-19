@@ -63,7 +63,7 @@ public readonly record struct InjectionTarget
     /// </summary>
     /// <param name="member">Member that requests the injection.</param>
     /// <param name="owner">
-    /// Instance that owns the member, or null if the member is static.
+    /// Instance that owns the member or null if the member is static.
     /// </param>
     public InjectionTarget(MemberInfo member, object? owner = null) :
         this(owner, null, member, null)

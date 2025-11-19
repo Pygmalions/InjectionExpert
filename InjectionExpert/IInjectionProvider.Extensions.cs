@@ -108,10 +108,11 @@ public static class InjectionProviderExtensions
             using var scope = provider.NewScope(new InjectionTarget(target));
 
             var type = target.GetType();
-            var missing = default(InjectionTarget);
-            if (!ConstructorInjector.For(type).TryInject(target, scope) ||
-                !MemberInjector.For(type).Inject(target, scope, options))
-                throw new InjectionFailureException(type, provider, missing);
+            if (!ConstructorInjector.For(type).TryInject(target, scope))
+                throw new InjectionFailureException(type, provider, 
+                    message: "Cannot find a constructor that " +
+                             "the injection provider can provide all of its parameters.");
+            MemberInjector.For(type).Inject(target, scope, options);
         }
 
         /// <summary>
@@ -126,11 +127,12 @@ public static class InjectionProviderExtensions
         public object NewObject(Type type, InjectorOptions? options = null)
         {
             using var scope = provider.NewScope(new InjectionTarget(type));
-
-            var missing = default(InjectionTarget);
-            if (!ConstructorInjector.For(type).TryInject(out var instance, scope) ||
-                !MemberInjector.For(type).Inject(instance, scope, options))
-                throw new InjectionFailureException(type, provider, missing);
+            
+            if (!ConstructorInjector.For(type).TryInject(out var instance, scope))
+                throw new InjectionFailureException(type, provider, 
+                    message: "Cannot find a constructor that " +
+                             "the injection provider can provide all of its parameters.");
+            MemberInjector.For(type).Inject(instance, scope, options);
             return instance;
         }
 

@@ -61,7 +61,7 @@ public class TestMemberInjector
             .For(typeof(StubMemberInjectionTarget))
             .Inject(sample, container, InjectorOptions.Default with
             {
-                FoundTargets = foundTargets
+                InjectedTargets = foundTargets
             });
 
         using (Assert.EnterMultipleScope())

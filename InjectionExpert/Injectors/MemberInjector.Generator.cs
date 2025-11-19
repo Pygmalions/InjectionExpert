@@ -77,8 +77,8 @@ public partial class MemberInjector
         var variableMissingTargets = argumentOptions
             .GetPropertyValue(target => target.MissingTargets)
             .ToSymbol();
-        var variableFoundTargets = argumentOptions
-            .GetPropertyValue(target => target.FoundTargets)
+        var variableInjectedTargets = argumentOptions
+            .GetPropertyValue(target => target.InjectedTargets)
             .ToSymbol();
 
         var variableSucceeded = method.Variable<bool>();
@@ -225,9 +225,9 @@ public partial class MemberInjector
                     throw new Exception($"Unsupported injecting member type '{member.MemberType}'.");
             }
 
-            using (method.If(variableFoundTargets.IsNotNull()))
+            using (method.If(variableInjectedTargets.IsNotNull()))
             {
-                variableFoundTargets.Add(
+                variableInjectedTargets.Add(
                     method.New(
                         () => new ValueTuple<InjectionTarget, InjectionItem>(
                             Any<InjectionTarget>.Value, Any<InjectionItem>.Value),

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.ObjectPool;
+
 namespace InjectionExpert.Injectors;
 
 [Flags]
@@ -14,11 +16,33 @@ public enum SelectionMode
     AttributedMembers = 1 << 1
 }
 
-/// <summary>
-/// 
-/// </summary>
+
 public readonly record struct InjectorOptions
 {
+    private class ListResetPolicy<TElement> : PooledObjectPolicy<List<TElement>>
+    {
+        public override List<TElement> Create() => new();
+
+        public override bool Return(List<TElement> list)
+        {
+            list.Clear();
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Shared object pool for lists of found targets.
+    /// </summary>
+    public static ObjectPool<List<(InjectionTarget, InjectionItem)>> PooledInjectedTargets { get; } =
+        new DefaultObjectPool<List<(InjectionTarget, InjectionItem)>>(
+            new ListResetPolicy<(InjectionTarget, InjectionItem)>());
+    
+    /// <summary>
+    /// Shared object pool for lists of missing targets.
+    /// </summary>
+    public static ObjectPool<List<InjectionTarget>> PooledMissingTargets { get; } =
+        new DefaultObjectPool<List<InjectionTarget>>(new ListResetPolicy<InjectionTarget>());
+
     /// <summary>
     /// Default options:
     /// <br/> - Selected members: with 'required' keyword or <see cref="InjectionAttribute"/>.
@@ -32,10 +56,10 @@ public readonly record struct InjectorOptions
         SelectedMembers = SelectionMode.AttributedMembers | SelectionMode.RequiredMembers,
         OnlyNullMembers = false,
         FailFast = true,
-        FoundTargets = null,
+        InjectedTargets = null,
         MissingTargets = null
     };
-    
+
     /// <summary>
     /// Controls which members will be injected.
     /// </summary>
@@ -55,7 +79,7 @@ public readonly record struct InjectorOptions
     /// <summary>
     /// If not null, the injector will record the injection targets that are found in this list.
     /// </summary>
-    public required ICollection<(InjectionTarget, InjectionItem)>? FoundTargets { get; init; }
+    public required ICollection<(InjectionTarget, InjectionItem)>? InjectedTargets { get; init; }
 
     /// <summary>
     /// If not null, the injector will record the injection targets that are not found in this list.
