@@ -72,7 +72,7 @@ public partial class MemberInjector
             .ToSymbol();
         var variableAreAttributedMembersSelected = argumentOptions
             .GetPropertyValue(target => target.SelectedMembers)
-            .HasFlag(SelectionMode.RequiredMembers)
+            .HasFlag(SelectionMode.AttributedMembers)
             .ToSymbol();
         var variableMissingTargets = argumentOptions
             .GetPropertyValue(target => target.MissingTargets)
