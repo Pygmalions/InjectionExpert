@@ -4,7 +4,7 @@ using EmitToolbox;
 
 namespace InjectionExpert.Injectors;
 
-[RequiresDynamicCode("`System.Reflection.Emit` is used in this class.")]
+[RequiresDynamicCode("'System.Reflection.Emit' is used in this class.")]
 public partial class ConstructorInjector
 {
     private static readonly DynamicResourceForType<ConstructorInjector>
@@ -21,8 +21,7 @@ public partial class ConstructorInjector
     
     private readonly Func<object, IInjectionProvider, bool> _functor;
     
-    private ConstructorInjector(
-        Type targetType, Func<object, IInjectionProvider, bool> functor)
+    private ConstructorInjector(Type targetType, Func<object, IInjectionProvider, bool> functor)
     {
         TargetType = targetType;
         _functor = functor;

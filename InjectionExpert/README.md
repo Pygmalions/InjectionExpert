@@ -76,7 +76,7 @@ var container = new InjectionContainer()
 var sample = new MyTarget();
 MemberInjector
     .For(typeof(MyTarget))
-    .TryInject(sample, container, out _);
+    .Inject(sample, container);
 
 // sample.NumberField == 1
 // sample.StringField == "Sample"

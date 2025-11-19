@@ -1,14 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <Version>0.3.0-dev11160049</Version>
+        <Version>0.3.0</Version>
         <Title>Injection Expert</Title>
         <Authors>Pygmalions</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Description>A dependency injection library based on dynamic IL weaving.</Description>
+        <Description>A dependency injection library based on dynamic IL generation. It supports constructor injection and member injection.</Description>
         <PackageProjectUrl>https://github.com/Pygmalions/InjectionExpert</PackageProjectUrl>
         <RepositoryUrl>https://github.com/Pygmalions/InjectionExpert</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
@@ -22,9 +22,10 @@
     </ItemGroup>
     
     <ItemGroup>
-      <PackageReference Include="EmitToolbox" Version="0.3.0-dev11160018" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+      <PackageReference Include="EmitToolbox" Version="0.3.0" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.11" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.11" />
+      <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.11" />
     </ItemGroup>
     
     <Target Name="InjectPackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec" Condition="Exists('RELEASE_NOTE.txt')">

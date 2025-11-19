@@ -1,4 +1,3 @@
-// Agent: Junie, gpt-5-2025-08-07
 using InjectionExpert.Entries;
 
 namespace InjectionExpert.Tests.Entries;

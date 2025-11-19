@@ -1,10 +1,10 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using EmitToolbox.Framework;
-using EmitToolbox.Framework.Extensions;
-using EmitToolbox.Framework.Symbols;
-using EmitToolbox.Framework.Symbols.Literals;
-using EmitToolbox.Framework.Utilities;
+using EmitToolbox;
+using EmitToolbox.Extensions;
+using EmitToolbox.Symbols;
+using EmitToolbox.Symbols.Literals;
+using EmitToolbox.Utilities;
 
 namespace InjectionExpert.Injectors;
 

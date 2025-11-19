@@ -36,10 +36,37 @@ public class TestMemberInjector
         var sample = new StubMemberInjectionTarget();
         MemberInjector
             .For(typeof(StubMemberInjectionTarget))
-            .TryInject(sample, container, out _);
+            .Inject(sample, container);
 
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(sample.NumberField, Is.EqualTo(1));
+            Assert.That(sample.DoubleField, Is.EqualTo(1.0));
+            Assert.That(sample.StringField, Is.EqualTo("Sample"));
+            Assert.That(sample.LongField, Is.EqualTo(2));
+        }
+    }
+    
+    [Test]
+    public void Injector_InjectFields_RecordsInjections()
+    {
+        var container = new InjectionContainer()
+            .AddSingleton(1)
+            .AddSingleton(2L)
+            .AddSingleton(1.0)
+            .AddSingleton("Sample");
+        var sample = new StubMemberInjectionTarget();
+        var foundTargets = new List<(InjectionTarget, InjectionItem)>();
+        MemberInjector
+            .For(typeof(StubMemberInjectionTarget))
+            .Inject(sample, container, InjectorOptions.Default with
+            {
+                FoundTargets = foundTargets
+            });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(foundTargets, Has.Count.EqualTo(5));
             Assert.That(sample.NumberField, Is.EqualTo(1));
             Assert.That(sample.DoubleField, Is.EqualTo(1.0));
             Assert.That(sample.StringField, Is.EqualTo("Sample"));
@@ -58,7 +85,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_MissingRequired_AbortedWithMissingTarget()
+    public void Injector_MissingRequired_FailFast_ThrowsException()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -68,15 +95,42 @@ public class TestMemberInjector
         {
             DoubleField = 1.0
         };
-        var succeeded = MemberInjector
-            .For(typeof(StubMemberInjectionTargetWithRequired))
-            .TryInject(sample, container, out var missing);
 
-        using (Assert.EnterMultipleScope())
+        Assert.Throws<InjectionFailureException>(() =>
         {
-            Assert.That(succeeded, Is.False);
-            Assert.That(missing.OwnerInstance, Is.EqualTo(sample));
-        }
+            MemberInjector
+                .For(typeof(StubMemberInjectionTargetWithRequired))
+                .Inject(sample, container);
+        });
+    }
+
+    [Test]
+    public void Injector_MissingRequired_NotFailFast_RecordsMissingTarget()
+    {
+        var container = new InjectionContainer()
+            .AddSingleton(1)
+            .AddSingleton((long)2)
+            .AddSingleton("Sample");
+        var sample = new StubMemberInjectionTargetWithRequired()
+        {
+            DoubleField = 1.0
+        };
+
+        var missingMembers = new List<InjectionTarget>();
+
+        var succeeded = true;
+        
+        Assert.DoesNotThrow(() =>
+        {
+            succeeded = MemberInjector
+                .For(typeof(StubMemberInjectionTargetWithRequired))
+                .Inject(sample, container, InjectorOptions.Default with
+                {
+                    FailFast = false,
+                    MissingTargets = missingMembers
+                });
+        });
+        Assert.That(succeeded, Is.False);
     }
 
     [Test]
@@ -87,12 +141,9 @@ public class TestMemberInjector
         var sample = new StubMemberInjectionTarget();
         MemberInjector
             .For(typeof(StubMemberInjectionTarget))
-            .TryInject(sample, container, out _);
+            .Inject(sample, container);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(sample.NumberProperty, Is.EqualTo(1));
-        }
+        Assert.That(sample.NumberProperty, Is.EqualTo(1));
     }
 
     private class StubWithObjects
@@ -113,7 +164,10 @@ public class TestMemberInjector
 
         MemberInjector
             .For(typeof(StubWithObjects))
-            .TryInject(sample, container, out _, true);
+            .Inject(sample, container, InjectorOptions.Default with
+            {
+                OnlyNullMembers = true
+            });
 
         using (Assert.EnterMultipleScope())
         {
@@ -143,7 +197,10 @@ public class TestMemberInjector
 
         MemberInjector
             .For(typeof(StubWithNullable))
-            .TryInject(sample, container, out _, true);
+            .Inject(sample, container, InjectorOptions.Default with
+            {
+                OnlyNullMembers = true
+            });
 
         using (Assert.EnterMultipleScope())
         {
@@ -167,7 +224,7 @@ public class TestMemberInjector
         var target = new StubWithKeys();
         var succeeded = MemberInjector
             .For(typeof(StubWithKeys))
-            .TryInject(target, container, out _);
+            .Inject(target, container);
 
         using (Assert.EnterMultipleScope())
         {
@@ -184,7 +241,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_WithIgnoredMembers()
+    public void Injector_WithIgnoredMembers_Skips()
     {
         var container = new InjectionContainer()
             .AddSingleton(3);
@@ -196,7 +253,7 @@ public class TestMemberInjector
         };
         var succeeded = MemberInjector
             .For(typeof(StubWithIgnoredMembers))
-            .TryInject(target, container, out _);
+            .Inject(target, container);
 
         using (Assert.EnterMultipleScope())
         {
@@ -205,17 +262,18 @@ public class TestMemberInjector
             Assert.That(target.Member2, Is.EqualTo(2));
         }
     }
-    
+
     private class StubWithInitOnlyMembers
     {
         // ReSharper disable once UnusedAutoPropertyAccessor.Local
         public required int Member1 { get; init; }
+
         // ReSharper disable once UnusedAutoPropertyAccessor.Local
         public required int Member2 { get; init; }
     }
 
     [Test]
-    public void Injector_WithRequiredInitMembers()
+    public void Injector_WithRequiredInitMembers_Injects()
     {
         var container = new InjectionContainer()
             .AddSingleton(3);
@@ -224,7 +282,7 @@ public class TestMemberInjector
 
         var succeeded = MemberInjector
             .For(typeof(StubWithInitOnlyMembers))
-            .TryInject(instance, container, out _);
+            .Inject(instance, container);
 
         var target = (StubWithInitOnlyMembers)instance;
 
@@ -237,17 +295,17 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_NoMatchingDependency_ReturnsFalse_And_NoChange()
+    public void Update_NoMatchingDependency_ReturnsFalse_NoUpdate()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
             .AddSingleton("orig");
         var sample = new StubMemberInjectionTarget();
-        MemberInjector.For(typeof(StubMemberInjectionTarget)).TryInject(sample, container, out _);
+        MemberInjector.For(typeof(StubMemberInjectionTarget)).Inject(sample, container);
 
         // No DateTime dependency exists
         var updated = MemberInjector.For(typeof(StubMemberInjectionTarget))
-            .TryUpdate(sample, typeof(DateTime), null, DateTime.Now);
+            .Update(sample, typeof(DateTime), null, DateTime.Now);
 
         using (Assert.EnterMultipleScope())
         {
@@ -259,7 +317,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_UpdateFieldAndProperty()
+    public void Update_UpdateFieldAndProperty()
     {
         var sample = new StubMemberInjectionTarget
         {
@@ -269,7 +327,7 @@ public class TestMemberInjector
         };
 
         var updated = MemberInjector.For(typeof(StubMemberInjectionTarget))
-            .TryUpdate(sample, typeof(int), null, 42);
+            .Update(sample, typeof(int), null, 42);
 
         using (Assert.EnterMultipleScope())
         {
@@ -280,7 +338,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_OnlyNullMembers_ForReferenceTypes()
+    public void Update_OnlyNullMembers_ForReferenceTypes()
     {
         var sample = new StubWithObjects
         {
@@ -290,7 +348,7 @@ public class TestMemberInjector
 
         var newBox = new StrongBox<int>(9);
         var updated = MemberInjector.For(typeof(StubWithObjects))
-            .TryUpdate(sample, typeof(StrongBox<int>), null, newBox, onlyNullMembers: true);
+            .Update(sample, typeof(StrongBox<int>), null, newBox, onlyNullMembers: true);
 
         using (Assert.EnterMultipleScope())
         {
@@ -303,7 +361,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_OnlyNullMembers_ForNullableValueTypes()
+    public void Update_OnlyNullMembers_ForNullableValueTypes()
     {
         var sample = new StubWithNullable
         {
@@ -312,9 +370,9 @@ public class TestMemberInjector
         };
 
         var updatedInt = MemberInjector.For(typeof(StubWithNullable))
-            .TryUpdate(sample, typeof(int?), null, (int?)5, onlyNullMembers: true);
+            .Update(sample, typeof(int?), null, (int?)5, onlyNullMembers: true);
         var updatedDouble = MemberInjector.For(typeof(StubWithNullable))
-            .TryUpdate(sample, typeof(double?), null, (double?)7.5, onlyNullMembers: true);
+            .Update(sample, typeof(double?), null, (double?)7.5, onlyNullMembers: true);
 
         using (Assert.EnterMultipleScope())
         {
@@ -328,7 +386,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_WithKeys_UpdatesOnlyMatchingKey()
+    public void Update_WithKeys_UpdatesOnlyMatchingKey()
     {
         var target = new StubWithKeys
         {
@@ -337,11 +395,11 @@ public class TestMemberInjector
         };
 
         var updatedKey1 = MemberInjector.For(typeof(StubWithKeys))
-            .TryUpdate(target, typeof(string), 1, "A");
+            .Update(target, typeof(string), 1, "A");
         var updatedKey2 = MemberInjector.For(typeof(StubWithKeys))
-            .TryUpdate(target, typeof(string), 2, "B");
+            .Update(target, typeof(string), 2, "B");
         var updatedWrongKey = MemberInjector.For(typeof(StubWithKeys))
-            .TryUpdate(target, typeof(string), 3, "C");
+            .Update(target, typeof(string), 3, "C");
 
         using (Assert.EnterMultipleScope())
         {
@@ -354,7 +412,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void TryUpdate_OnlyNullMembers_NoActualUpdate_ReturnsFalse()
+    public void Update_OnlyNullMembers_ReturnsFalse_NoUpdate()
     {
         var target = new StubWithObjects
         {
@@ -363,7 +421,7 @@ public class TestMemberInjector
         };
 
         var updated = MemberInjector.For(typeof(StubWithObjects))
-            .TryUpdate(target, typeof(StrongBox<int>), null, new StrongBox<int>(3), onlyNullMembers: true);
+            .Update(target, typeof(StrongBox<int>), null, new StrongBox<int>(3), onlyNullMembers: true);
 
         using (Assert.EnterMultipleScope())
         {
@@ -407,8 +465,10 @@ public class TestMemberInjector
         Assert.That(deps.Count, Is.EqualTo(2));
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(deps.Any(d => d.Type == typeof(string) && Equals(d.Key, 1) && d.Member.Name == "Key1"), Is.True);
-            Assert.That(deps.Any(d => d.Type == typeof(string) && Equals(d.Key, 2) && d.Member.Name == "Key2"), Is.True);
+            Assert.That(deps.Any(d => d.Type == typeof(string) && Equals(d.Key, 1) && d.Member.Name == "Key1"),
+                Is.True);
+            Assert.That(deps.Any(d => d.Type == typeof(string) && Equals(d.Key, 2) && d.Member.Name == "Key2"),
+                Is.True);
         }
     }
 
@@ -434,7 +494,9 @@ public class TestMemberInjector
         using (Assert.EnterMultipleScope())
         {
             // Two required properties without [Injection] should still be dependencies
-            Assert.That(deps.Count(d => d.Type == typeof(int) && (d.Member.Name == "Member1" || d.Member.Name == "Member2")), Is.EqualTo(2));
+            Assert.That(
+                deps.Count(d => d.Type == typeof(int) && (d.Member.Name == "Member1" || d.Member.Name == "Member2")),
+                Is.EqualTo(2));
             Assert.That(deps.All(d => d.Key == null), Is.True);
         }
 

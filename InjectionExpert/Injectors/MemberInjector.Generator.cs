@@ -1,11 +1,11 @@
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using EmitToolbox.Framework;
-using EmitToolbox.Framework.Extensions;
-using EmitToolbox.Framework.Symbols;
-using EmitToolbox.Framework.Symbols.Literals;
-using EmitToolbox.Framework.Utilities;
+using EmitToolbox;
+using EmitToolbox.Extensions;
+using EmitToolbox.Symbols;
+using EmitToolbox.Symbols.Literals;
+using EmitToolbox.Symbols.Operations;
+using EmitToolbox.Utilities;
 using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Injectors;
@@ -21,7 +21,7 @@ public partial class MemberInjector
     {
         var functor = GenerateInjector(assemblyContext, type, out var injections)
             .GetMethod("TryInject")!
-            .CreateDelegate<Func<object, IInjectionProvider, bool, InjectionTarget?>>();
+            .CreateDelegate<InjectorDelegate>();
 
         if (!type.IsGenericType)
             return new MemberInjector(type, functor, injections);
@@ -49,16 +49,40 @@ public partial class MemberInjector
 
         injections = new MultiDictionary<(Type Type, object? Key), MemberInfo>();
 
-        var method = typeContext.MethodFactory.Static.DefineFunctor<InjectionTarget?>("TryInject",
+        var method = typeContext.MethodFactory.Static.DefineFunctor<bool>("TryInject",
         [
             ParameterDefinition.Value<object>("target"),
             ParameterDefinition.Value<IInjectionProvider>("provider"),
-            ParameterDefinition.Value<bool>("onlyNullMembers")
+            ParameterDefinition.Value<InjectorOptions>("options")
         ]);
 
         var argumentBoxedTarget = method.Argument<object>(0);
         var argumentProvider = method.Argument<IInjectionProvider>(1);
-        var argumentOnlyNullMembers = method.Argument<bool>(2);
+        var argumentOptions = method.Argument<InjectorOptions>(2);
+
+        var variableOnlyNullMembers = argumentOptions
+            .GetPropertyValue(target => target.OnlyNullMembers)
+            .ToSymbol();
+        var variableShouldFailFast = argumentOptions
+            .GetPropertyValue(target => target.FailFast)
+            .ToSymbol();
+        var variableAreRequiredMembersSelected = argumentOptions
+            .GetPropertyValue(target => target.SelectedMembers)
+            .HasFlag(SelectionMode.RequiredMembers)
+            .ToSymbol();
+        var variableAreAttributedMembersSelected = argumentOptions
+            .GetPropertyValue(target => target.SelectedMembers)
+            .HasFlag(SelectionMode.RequiredMembers)
+            .ToSymbol();
+        var variableMissingTargets = argumentOptions
+            .GetPropertyValue(target => target.MissingTargets)
+            .ToSymbol();
+        var variableFoundTargets = argumentOptions
+            .GetPropertyValue(target => target.FoundTargets)
+            .ToSymbol();
+
+        var variableSucceeded = method.Variable<bool>();
+        variableSucceeded.AssignValue(method.Value(true));
 
         VariableSymbol variableUnboxedTarget;
         if (type.IsValueType)
@@ -74,34 +98,48 @@ public partial class MemberInjector
             variableUnboxedTarget.AssignContent(argumentBoxedTarget.CastTo(type));
         }
 
-        var variableInjectionItem = method.Variable<InjectionItem?>();
-        var variableInjectionRequester = method.Variable<InjectionTarget>();
+        var variableCurrentInjection = method.Variable<InjectionItem?>();
+        var variableCurrentRequester = method.Variable<InjectionTarget>();
 
         var labelFailed = method.DefineLabel();
-
-        var options = type.GetCustomAttribute<InjectionOptionsAttribute>();
+        var labelCompleted = method.DefineLabel();
 
         foreach (var member in type
                      .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                     .Where(candidate => ShouldMemberBeInjected(candidate, options)))
+                     .Where(CanMemberBeInjected))
         {
             var attribute = member.GetCustomAttribute<InjectionAttribute>();
             var required = member.IsDefined(typeof(RequiredMemberAttribute));
 
+            if (attribute is null && !required)
+                continue;
+            if (attribute is { Ignored: true })
+                continue;
+
             var labelContinue = method.DefineLabel();
-            var labelInjection = method.DefineLabel();
+
+            // Calculate the member selection condition.
+            IOperationSymbol<bool> isMemberSelected = new NoOperation<bool>(method.Value(false));
+            if (attribute != null)
+                isMemberSelected = isMemberSelected.Or(variableAreAttributedMembersSelected);
+            if (required)
+                isMemberSelected = isMemberSelected.Or(variableAreRequiredMembersSelected);
+
+            // Skip the injection if the member is not selected.
+            labelContinue.GotoIfFalse(isMemberSelected);
 
             (ISymbol<MemberInfo> Symbol, Type Type) requester = member switch
             {
                 FieldInfo field => (method.Value(field), field.FieldType),
                 PropertyInfo property => (method.Value(property), property.PropertyType),
-                _ => throw new Exception($"Unsupported injecting member type {member.MemberType}.")
+                _ => throw new Exception($"Unsupported injecting member type '{member.MemberType}'.")
             };
 
-            if (!type.IsValueType || type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            if (!type.IsValueType || type.IsGenericType &&
+                type.GetGenericTypeDefinition() == typeof(Nullable<>))
             {
                 // Handle `onlyNullMembers` option.
-                using (method.If(argumentOnlyNullMembers))
+                using (method.If(variableOnlyNullMembers))
                 {
                     // Check if the member is null.
                     var symbolIsNull = member switch
@@ -110,7 +148,7 @@ public partial class MemberInjector
                             .HasNullValue(),
                         PropertyInfo property => variableUnboxedTarget.GetPropertyValue(property)
                             .HasNullValue(),
-                        _ => throw new Exception($"Unsupported injecting member type {member.MemberType}.")
+                        _ => throw new Exception($"Unsupported injecting member type '{member.MemberType}'.")
                     };
 
                     // Skip the injection if the member is not null.
@@ -118,39 +156,56 @@ public partial class MemberInjector
                 }
             }
 
-            labelInjection.Mark();
-
-            ISymbol<MemberInfo> symbolRequester = member switch
-            {
-                FieldInfo fieldRequester => method.Value(fieldRequester),
-                PropertyInfo propertyRequester => method.Value(propertyRequester),
-                _ => throw new Exception($"Unsupported requester type '{member.GetType()}'.")
-            };
-
-            variableInjectionRequester.AssignNew(
+            variableCurrentRequester.AssignNew(
                 typeof(InjectionTarget).GetConstructor(
                     [typeof(MemberInfo), typeof(object)])!,
-                [symbolRequester, argumentBoxedTarget]);
+                [
+                    member switch
+                    {
+                        FieldInfo fieldRequester => method.Value(fieldRequester),
+                        PropertyInfo propertyRequester => method.Value(propertyRequester),
+                        _ => throw new Exception($"Unsupported requester type '{member.GetType()}'.")
+                    },
+                    argumentBoxedTarget
+                ]);
 
-            ISymbol<object> symbolKey = attribute?.Key is { } key
-                ? LiteralSymbolFactory.Create(method, key).ToObject()
-                : method.Null<object>();
-
+            // Get the injection item and assign it to the local variable.
             argumentProvider
                 .Invoke(
                     target => target.GetInjectionItem(
                         Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
-                    [method.Value(requester.Type), symbolKey, variableInjectionRequester])
-                .ToSymbol(variableInjectionItem);
+                    [
+                        method.Value(requester.Type),
+                        attribute?.Key is { } key
+                            ? LiteralSymbolFactory.Create(method, key).ToObject()
+                            : method.Null<object>(),
+                        variableCurrentRequester
+                    ])
+                .ToSymbol(variableCurrentInjection);
 
-            (required ? labelFailed : labelContinue)
-                .GotoIfFalse(variableInjectionItem.HasValue());
+            using (method.IfNot(variableCurrentInjection.HasValue()))
+            {
+                // Record the missing injection target.
+                using (method.If(variableMissingTargets.IsNotNull()))
+                {
+                    variableMissingTargets.Add(variableCurrentRequester);
+                }
+
+                variableSucceeded.AssignValue(method.Value(false));
+
+                if (required)
+                    // Throw the exception if the injector should fail fast.
+                    labelFailed.GotoIfTrue(variableShouldFailFast);
+
+                // Continue to the next member.
+                labelContinue.Goto();
+            }
 
             switch (member)
             {
                 case FieldInfo field:
                     variableUnboxedTarget.Field(field).AssignValue(
-                        variableInjectionItem
+                        variableCurrentInjection
                             .GetValue()
                             .GetPropertyValue(target => target.Instance)
                             .ConvertTo(field.FieldType));
@@ -158,14 +213,24 @@ public partial class MemberInjector
                 case PropertyInfo property:
                     variableUnboxedTarget.SetPropertyValue(
                         property,
-                        variableInjectionItem
+                        variableCurrentInjection
                             .GetValue()
                             .GetPropertyValue(target => target.Instance)
                             .ConvertTo(property.PropertyType)
                     );
                     break;
                 default:
-                    throw new Exception($"Unsupported injecting member type {member.MemberType}.");
+                    throw new Exception($"Unsupported injecting member type '{member.MemberType}'.");
+            }
+
+            using (method.If(variableFoundTargets.IsNotNull()))
+            {
+                variableFoundTargets.Add(
+                    method.New(
+                        () => new ValueTuple<InjectionTarget, InjectionItem>(
+                            Any<InjectionTarget>.Value, Any<InjectionItem>.Value),
+                        [variableCurrentRequester, variableCurrentInjection.GetValue()])
+                );
             }
 
             injections.Add((requester.Type, attribute?.Key), member);
@@ -173,22 +238,29 @@ public partial class MemberInjector
             labelContinue.Mark();
         }
 
-        var labelReturn = method.DefineLabel();
-
-        labelReturn.Goto();
+        labelCompleted.Goto();
 
         labelFailed.Mark();
-        method.Return(variableInjectionRequester.ToNullable());
 
-        labelReturn.Mark();
-        method.Return(method.Variable<InjectionTarget?>());
+        // Throw the exception.
+        method.ThrowException(() => new InjectionFailureException(
+                Any<Type>.Value, Any<IInjectionProvider>.Value,
+                Any<InjectionTarget?>.Value, Any<string>.Value),
+            [
+                method.Value(type), argumentProvider,
+                variableCurrentRequester.ToNullable(), method.Null<string>()
+            ]);
+
+        labelCompleted.Mark();
+
+        method.Return(variableSucceeded);
 
         typeContext.Build();
 
         return typeContext.BuildingType;
     }
 
-    private static bool ShouldMemberBeInjected(MemberInfo member, InjectionOptionsAttribute? options)
+    private static bool CanMemberBeInjected(MemberInfo member)
     {
         switch (member)
         {
@@ -199,13 +271,6 @@ public partial class MemberInjector
                 return false;
         }
 
-        var attribute = member.GetCustomAttribute<InjectionAttribute>();
-        if (attribute?.Ignored == true)
-            return false;
-
-        if (options?.WithRequiredMembers != false &&
-            member.IsDefined(typeof(RequiredMemberAttribute)))
-            return true;
-        return options?.WithAttributedMembers != false && attribute != null;
+        return true;
     }
 }

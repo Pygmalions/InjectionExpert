@@ -1,16 +1,17 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace InjectionExpert.Utilities.Internal;
 
-internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> : 
+internal class KeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     IEnumerable<(TPrimaryKey PrimaryKey, TSecondaryKey SecondaryKey, TValue Value)>
     where TPrimaryKey : notnull
     where TSecondaryKey : notnull
     where TValue : notnull
 {
-    private readonly ConcurrentDictionary<TPrimaryKey, ConcurrentDictionary<TSecondaryKey, TValue>> _dictionaries =
+    private readonly Dictionary<TPrimaryKey, Dictionary<TSecondaryKey, TValue>> _dictionaries =
         new();
 
     /// <summary>
@@ -22,15 +23,10 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// </exception>
     public TValue this[(TPrimaryKey Primary, TSecondaryKey Secondary) keys]
     {
-        get
-        {
-            if (_dictionaries.GetValueOrDefault(keys.Primary)?.TryGetValue(keys.Secondary, out var value) == true)
-                return value;
-            throw new KeyNotFoundException($"Key '{keys}' is not found in the dictionary.");
-        }
-        set =>
-            _dictionaries.GetOrAdd(keys.Primary, _ => new ConcurrentDictionary<TSecondaryKey, TValue>())
-                [keys.Secondary] = value;
+        get => TryGetValue(keys.Primary, keys.Secondary, out var value) 
+            ? value 
+            : throw new KeyNotFoundException();
+        set => SetValue(keys.Primary, keys.Secondary, value);
     }
 
     /// <summary>
@@ -41,8 +37,13 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// <param name="value">Value to add.</param>
     /// <returns>True if the value is added, false if the same value already exists.</returns>
     public void SetValue(TPrimaryKey primaryKey, TSecondaryKey secondaryKey, TValue value)
-        => _dictionaries.GetOrAdd(primaryKey, _ => new ConcurrentDictionary<TSecondaryKey, TValue>())
-            [secondaryKey] = value;
+    {
+        ref var dictionary = ref CollectionsMarshal.GetValueRefOrAddDefault(
+            _dictionaries, primaryKey, out var exists)!;
+        if (!exists)
+            dictionary = new Dictionary<TSecondaryKey, TValue>();
+        dictionary[secondaryKey] = value;
+    }
 
     /// <summary>
     /// Remove all objects with the specified primary key,
@@ -51,19 +52,7 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// <param name="key">Primary key of the values to remove.</param>
     /// <returns>True if any value is removed, false if the value is not found.</returns>
     public bool Remove(TPrimaryKey key)
-        => _dictionaries.TryRemove(key, out var collection) && collection.IsEmpty;
-
-    /// <summary>
-    /// Remove all objects with the specified primary key,
-    /// not matter what their secondary key is.
-    /// </summary>
-    /// <param name="key">Primary key of the values to remove.</param>
-    /// <param name="dictionary">Dictionary of values with the specified primary key.</param>
-    /// <returns>True if any value is removed, false if the value is not found.</returns>
-    public bool Remove(TPrimaryKey key,
-        [NotNullWhen(true)] out ConcurrentDictionary<TSecondaryKey, TValue>? dictionary)
-        => _dictionaries.TryRemove(key, out dictionary) && dictionary.IsEmpty;
-
+        => _dictionaries.Remove(key, out var collection) && collection.Count != 0;
 
     /// <summary>
     /// Remove a value with the specified primary and secondary key.
@@ -82,9 +71,9 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// <param name="value">The removed value the specified primary and secondary keys.</param>
     /// <returns>True if the value is removed, false if the value is not found.</returns>
     public bool Remove(TPrimaryKey primaryKey, TSecondaryKey secondaryKey,
-        [NotNullWhen(true)] out TValue? value)
+        [MaybeNullWhen(false)] out TValue value)
     {
-        if (_dictionaries.TryGetValue(primaryKey, out var dictionary) && dictionary.TryRemove(secondaryKey, out value))
+        if (_dictionaries.TryGetValue(primaryKey, out var dictionary) && dictionary.Remove(secondaryKey, out value))
             return true;
         value = default;
         return false;
@@ -98,7 +87,7 @@ internal class ConcurrentKeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// True if this dictionary contains at least one value with the specified primary key, otherwise false.
     /// </returns>
     public bool ContainsKey(TPrimaryKey key)
-        => _dictionaries.TryGetValue(key, out var dictionary) && !dictionary.IsEmpty;
+        => _dictionaries.TryGetValue(key, out var dictionary) && dictionary.Count != 0;
 
     /// <summary>
     /// Check if this dictionary contains any value with the specified primary and secondary keys.

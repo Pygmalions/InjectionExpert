@@ -5,11 +5,16 @@ using InjectionExpert.Utilities.Internal;
 
 namespace InjectionExpert.Injectors;
 
-[RequiresDynamicCode("`System.Reflection.Emit` is used in this class.")]
+[RequiresDynamicCode("'System.Reflection.Emit' is used in this class.")]
 public partial class MemberInjector
 {
     private static readonly DynamicResourceForType<MemberInjector>
         Cache = new(CreateInjector, moduleNamePrefix: "GeneratedMemberInjectors_");
+
+    public delegate bool InjectorDelegate(
+        object target,
+        IInjectionProvider provider,
+        InjectorOptions options);
 
     /// <summary>
     /// Get the member injector for the specified type.
@@ -20,15 +25,15 @@ public partial class MemberInjector
 
     private readonly MultiDictionary<(Type Type, object? Key), MemberInfo> _dependencies;
 
-    private readonly Func<object, IInjectionProvider, bool, InjectionTarget?> _functor;
-    
+    private readonly InjectorDelegate _functor;
+
     public Type TargetType { get; }
-    
+
     public IEnumerable<(Type Type, object? Key, MemberInfo Member)> Dependencies
         => _dependencies.SelectMany(pair => pair.Value.Select(member => (pair.Key.Type, pair.Key.Key, member)));
-    
+
     private MemberInjector(
-        Type type, Func<object, IInjectionProvider, bool, InjectionTarget?> functor,
+        Type type, InjectorDelegate functor,
         MultiDictionary<(Type Type, object? Key), MemberInfo> dependencies)
     {
         TargetType = type;
@@ -42,37 +47,19 @@ public partial class MemberInjector
     /// </summary>
     /// <param name="target">Target object can be boxed structs.</param>
     /// <param name="provider">Provider to get injections from.</param>
-    /// <param name="missing">
-    /// The requester whose injection requirement cannot be satisfied.
-    /// It will be the default value if this method returns true.
-    /// </param>
-    /// <param name="onlyNullMembers">
-    /// If true, the injector will not inject not null members.
-    /// Value types without <see cref="Nullable{T}"/> will always be injected. 
-    /// </param>
+    /// <param name="options">Injection options.</param>
     /// <returns>
     /// True if all required injections of the specified object are found and injected,
     /// otherwise false.
     /// </returns>
-    public bool TryInject(object target, IInjectionProvider provider, out InjectionTarget missing,
-        bool onlyNullMembers = false)
-    {
-        var requester = _functor(target, provider, onlyNullMembers);
-        if (requester != null)
-        {
-            missing = requester.Value;
-            return false;
-        }
-
-        missing = default;
-        return true;
-    }
+    public bool Inject(object target, IInjectionProvider provider, InjectorOptions? options = null)
+        => _functor(target, provider, options ?? InjectorOptions.Default);
 
     /// <summary>
     /// Try to update the injections of the specified object.
     /// </summary>
     /// <param name="target">
-    /// Object whose members with specified type of injections will be updated.
+    /// Object whose members with a specified type of injections will be updated.
     /// </param>
     /// <param name="type">Injection type.</param>
     /// <param name="key">Key for the injection.</param>
@@ -82,7 +69,8 @@ public partial class MemberInjector
     /// True if the members with the specified type of injections are updated;
     /// false if no member is injected with the specified type.
     /// </returns>
-    public bool TryUpdate(object target, Type type, object? key, object? injection, 
+    public bool Update(
+        object target, Type type, object? key, object? injection,
         bool onlyNullMembers = false)
     {
         if (!_dependencies.TryGetValues((type, key), out var members))
@@ -105,9 +93,10 @@ public partial class MemberInjector
                     updated = true;
                     break;
                 default:
-                    throw new Exception("Unsupported injection member type \"{member.MemberType}\".");
+                    throw new Exception($"Unsupported injection member type '{member.MemberType}'.");
             }
         }
+
         return updated;
     }
 }

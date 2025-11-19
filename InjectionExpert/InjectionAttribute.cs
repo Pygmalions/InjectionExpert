@@ -1,7 +1,7 @@
 namespace InjectionExpert;
 
 /// <summary>
-/// This attribute marks a member as dependency that should be injected (when 'enabled' is true),
+/// This attribute marks a member as the dependency that should be injected (when 'enabled' is true),
 /// or a parameter that should be ignored by the injector (when 'enabled' is false).
 /// This attribute can also be used to provide an optional key for the dependency.
 /// </summary>

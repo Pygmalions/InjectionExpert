@@ -1,20 +1,35 @@
-using System.Collections.Concurrent;
 using InjectionExpert.Utilities.Internal;
+using Microsoft.Extensions.ObjectPool;
 
 namespace InjectionExpert;
 
 public class InjectionScope : IInjectionProvider.IScope
 {
-    private static readonly ObjectPool<InjectionScope> PooledScopes =
-        new(() => new InjectionScope());
+    private class ScopePooledPolicy : IPooledObjectPolicy<InjectionScope>
+    {
+        public InjectionScope Create() => new();
+
+        public bool Return(InjectionScope instance)
+        {
+            instance._target = default;
+            instance._parent = null!;
+            instance._provider = null;
+            instance._scopedKeyedInjections?.Clear();
+            instance._scopedUnkeyedInjections?.Clear();
+            return true;
+        }
+    }
+
+    private static readonly DefaultObjectPool<InjectionScope> PooledScopes =
+        new(new ScopePooledPolicy());
 
     private InjectionScope? _parent;
 
     private IInjectionProvider? _provider;
 
-    private ConcurrentKeyedDictionary<Type, object, object>? _scopedKeyedInjections;
+    private KeyedDictionary<Type, object, object>? _scopedKeyedInjections;
 
-    private ConcurrentDictionary<Type, object>? _scopedUnkeyedInjections;
+    private Dictionary<Type, object>? _scopedUnkeyedInjections;
 
     private InjectionTarget _target;
 
@@ -48,26 +63,27 @@ public class InjectionScope : IInjectionProvider.IScope
         }
 
         var entry = _provider.GetInjectionItem(type, key, target);
-        if (entry?.Lifespan != InjectionLifespan.Scoped) 
+        if (entry?.Lifespan != InjectionLifespan.Scoped)
             return entry;
-        
+
         if (key is null)
         {
-            _scopedUnkeyedInjections ??= new ConcurrentDictionary<Type, object>();
+            _scopedUnkeyedInjections ??= new Dictionary<Type, object>();
             _scopedUnkeyedInjections[type] = entry.Value.Instance;
         }
         else
         {
-            _scopedKeyedInjections ??= new ConcurrentKeyedDictionary<Type, object, object>();
+            _scopedKeyedInjections ??= new KeyedDictionary<Type, object, object>();
             _scopedKeyedInjections.SetValue(type, key, entry.Value.Instance);
         }
+
         return entry;
     }
 
     /// <summary>
     /// Create a new nested scope of this scope.
     /// </summary>
-    /// <returns>New nested sub-scope of current scope.</returns>
+    /// <returns>New nested sub-scope of the current scope.</returns>
     public IInjectionProvider.IScope NewScope(InjectionTarget target)
     {
         if (_provider == null)
@@ -90,7 +106,7 @@ public class InjectionScope : IInjectionProvider.IScope
     public static InjectionScope New(
         IInjectionProvider provider, InjectionScope? parent, InjectionTarget target)
     {
-        var scope = PooledScopes.Rent();
+        var scope = PooledScopes.Get();
         scope._provider = provider;
         scope._parent = parent;
         scope._target = target;

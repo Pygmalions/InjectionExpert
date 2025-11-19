@@ -81,7 +81,7 @@ public static class InjectionProviderExtensions
                throw new Exception($"Failed to find required injection '{type.Name}' with key '{key}'");
 
         /// <summary>
-        /// Get an injection of the specified category for this provider,
+        /// Get an injection of the specified category for this provider
         /// or throw an exception if not found.
         /// </summary>
         /// <typeparam name="TObject">Type of the injection.</typeparam>
@@ -97,19 +97,20 @@ public static class InjectionProviderExtensions
         /// Re-instantiate an object and inject all required dependencies.
         /// </summary>
         /// <param name="target">Target instance to re-construct.</param>
+        /// <param name="options">Options for member injector.</param>
         /// <returns>Instantiated object instance.</returns>
         /// <exception cref="InjectionFailureException">
         /// Throw if any required injections cannot be found within the specified provider.
         /// </exception>
         [EditorBrowsable(EditorBrowsableState.Advanced)]
-        public void NewObject(object target)
+        public void NewObject(object target, InjectorOptions? options = null)
         {
             using var scope = provider.NewScope(new InjectionTarget(target));
 
             var type = target.GetType();
             var missing = default(InjectionTarget);
             if (!ConstructorInjector.For(type).TryInject(target, scope) ||
-                !MemberInjector.For(type).TryInject(target, scope, out missing))
+                !MemberInjector.For(type).Inject(target, scope, options))
                 throw new InjectionFailureException(type, provider, missing);
         }
 
@@ -117,17 +118,18 @@ public static class InjectionProviderExtensions
         /// Instantiate a new object of the specified type and inject all required dependencies.
         /// </summary>
         /// <param name="type">Type to instantiate.</param>
+        /// <param name="options">Options for member injector.</param>
         /// <returns>Instantiated object instance.</returns>
         /// <exception cref="InjectionFailureException">
         /// Throw if any required injections cannot be found within the specified provider.
         /// </exception>
-        public object NewObject(Type type)
+        public object NewObject(Type type, InjectorOptions? options = null)
         {
             using var scope = provider.NewScope(new InjectionTarget(type));
 
             var missing = default(InjectionTarget);
             if (!ConstructorInjector.For(type).TryInject(out var instance, scope) ||
-                !MemberInjector.For(type).TryInject(instance, scope, out missing))
+                !MemberInjector.For(type).Inject(instance, scope, options))
                 throw new InjectionFailureException(type, provider, missing);
             return instance;
         }
@@ -135,15 +137,16 @@ public static class InjectionProviderExtensions
         /// <summary>
         /// Instantiate a new object of the specified type and inject all required dependencies.
         /// </summary>
+        /// <param name="options">Options for member injector.</param>
         /// <typeparam name="TObject">Type to instantiate.</typeparam>
         /// <returns>Instantiated object instance.</returns>
         /// <exception cref="InjectionFailureException">
         /// Throw if any required injections cannot be found within the specified provider.
         /// </exception>
-        public TObject NewObject<TObject>()
+        public TObject NewObject<TObject>(InjectorOptions? options = null)
         {
             using var scope = provider.NewScope(new InjectionTarget(typeof(TObject)));
-            return (TObject)scope.NewObject(typeof(TObject));
+            return (TObject)scope.NewObject(typeof(TObject), options);
         }
     }
 
@@ -153,23 +156,32 @@ public static class InjectionProviderExtensions
         /// Inject the members of this object with the specified injection provider.
         /// </summary>
         /// <param name="provider">Provider to get injections from.</param>
-        /// <param name="onlyNullMembers">
-        /// If true, only members that are null will be injected.
-        /// Value types other than <see cref="Nullable{T}"/> will always be injected.
+        /// <param name="options">
+        /// Injection options.
+        /// If this parameter is null,
+        /// modified default options will be used: 
+        /// <see cref="InjectorOptions.OnlyNullMembers"/> is true
+        /// and <see cref="InjectorOptions.FailFast"/> is false.
         /// </param>
         /// <typeparam name="TTarget">Type of this object.</typeparam>
         /// <returns>This object.</returns>
         /// <exception cref="InjectionFailureException">
         /// Throw if any required injections cannot be found within the specified provider.
         /// </exception>
-        public TTarget Autowire(IInjectionProvider provider, bool onlyNullMembers = true)
+        public TTarget Autowire(IInjectionProvider provider, InjectorOptions? options = null)
         {
             using var scope = provider.NewScope(new InjectionTarget(target));
 
+            options ??= InjectorOptions.Default with
+            {
+                FailFast = false,
+                OnlyNullMembers = true
+            };
+            
             // Get the actual type of the target object, in case TTarget is a base class of it.
             var type = target.GetType();
-            return !MemberInjector.For(type).TryInject(target, scope, out var missing, onlyNullMembers)
-                ? throw new InjectionFailureException(type, provider, missing)
+            return !MemberInjector.For(type).Inject(target, scope, options)
+                ? throw new InjectionFailureException(type, provider)
                 : target;
         }
 
@@ -186,7 +198,7 @@ public static class InjectionProviderExtensions
             object? key = null, bool onlyNullMembers = true)
         {
             object boxedTarget = target;
-            MemberInjector.For(target.GetType()).TryUpdate(
+            MemberInjector.For(target.GetType()).Update(
                 boxedTarget, typeof(TDependency),
                 key, injection, onlyNullMembers);
             return (TTarget)boxedTarget;

@@ -19,12 +19,12 @@ public class InjectionFunctorProvider(
     /// <summary>
     /// Cache for keyed singleton injections.
     /// </summary>
-    private ConcurrentKeyedDictionary<Type, object, object>? _cachedKeyedSingletons;
+    private KeyedDictionary<Type, object, object>? _cachedKeyedSingletons;
 
     /// <summary>
     /// Cache for unkeyed singleton injections.
     /// </summary>
-    private ConcurrentDictionary<Type, object>? _cachedUnkeyedSingletons;
+    private Dictionary<Type, object>? _cachedUnkeyedSingletons;
     
     public delegate InjectionItem? ProviderDelegate(Type type, object? key, InjectionTarget target);
 
@@ -51,12 +51,12 @@ public class InjectionFunctorProvider(
         // Cache the singleton instance.
         if (key is null)
         {
-            _cachedUnkeyedSingletons ??= new ConcurrentDictionary<Type, object>();
+            _cachedUnkeyedSingletons ??= new Dictionary<Type, object>();
             _cachedUnkeyedSingletons[type] = entry.Value.Instance;
         }
         else
         {
-            _cachedKeyedSingletons ??= new ConcurrentKeyedDictionary<Type, object, object>();
+            _cachedKeyedSingletons ??= new KeyedDictionary<Type, object, object>();
             _cachedKeyedSingletons.SetValue(type, key, entry.Value.Instance);
         }
         return entry;
