@@ -191,11 +191,13 @@ public partial class MemberInjector
                     variableMissingTargets.Add(variableCurrentRequester);
                 }
 
-                variableSucceeded.AssignValue(method.Value(false));
-
                 if (required)
+                {
+                    variableSucceeded.AssignValue(method.Value(false));
+                    
                     // Throw the exception if the injector should fail fast.
                     labelFailed.GotoIfTrue(variableShouldFailFast);
+                }
 
                 // Continue to the next member.
                 labelContinue.Goto();

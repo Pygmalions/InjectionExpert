@@ -132,6 +132,35 @@ public class TestMemberInjector
         });
         Assert.That(succeeded, Is.False);
     }
+    
+    [Test]
+    public void Injector_MissingAttributed_ReturnsTrue()
+    {
+        var container = new InjectionContainer()
+            .AddSingleton(1)
+            .AddSingleton(2.0)
+            .AddSingleton("Sample");
+        var sample = new StubMemberInjectionTargetWithRequired()
+        {
+            DoubleField = 1.0
+        };
+
+        var missingMembers = new List<InjectionTarget>();
+
+        var succeeded = true;
+        
+        Assert.DoesNotThrow(() =>
+        {
+            succeeded = MemberInjector
+                .For(typeof(StubMemberInjectionTargetWithRequired))
+                .Inject(sample, container, InjectorOptions.Default with
+                {
+                    FailFast = false,
+                    MissingTargets = missingMembers
+                });
+        });
+        Assert.That(succeeded, Is.True);
+    }
 
     [Test]
     public void Injector_InjectProperties()
