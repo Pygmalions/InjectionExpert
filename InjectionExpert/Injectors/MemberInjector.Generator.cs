@@ -102,7 +102,6 @@ public partial class MemberInjector
         var variableCurrentRequester = method.Variable<InjectionTarget>();
 
         var labelFailed = method.DefineLabel();
-        var labelCompleted = method.DefineLabel();
 
         foreach (var member in type
                      .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -240,20 +239,17 @@ public partial class MemberInjector
             labelContinue.Mark();
         }
 
-        labelCompleted.Goto();
-
-        labelFailed.Mark();
-
-        // Throw the exception.
-        method.ThrowException(() => new InjectionFailureException(
-                Any<Type>.Value, Any<IInjectionProvider>.Value,
-                Any<InjectionTarget?>.Value, Any<string>.Value),
-            [
-                method.Value(type), argumentProvider,
-                variableCurrentRequester.ToNullable(), method.Null<string>()
-            ]);
-
-        labelCompleted.Mark();
+        using (labelFailed.MarkGotoOnlyScope())
+        {
+            // Throw the exception.
+            method.ThrowException(() => new InjectionFailureException(
+                    Any<Type>.Value, Any<IInjectionProvider>.Value,
+                    Any<InjectionTarget?>.Value, Any<string>.Value),
+                [
+                    method.Value(type), argumentProvider,
+                    variableCurrentRequester.ToNullable(), method.Null<string>()
+                ]);
+        }
 
         method.Return(variableSucceeded);
 
