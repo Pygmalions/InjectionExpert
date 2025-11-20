@@ -185,19 +185,6 @@ public partial class ConstructorInjector
                 }
             }
         }
-
-        context.VariableUnboxedTarget.LoadAsTarget();
-
-        foreach (var (index, parameter) in constructor.GetParameters().Index())
-        {
-            context.VariablesInjectionItem[index]
-                .GetValue()
-                .GetPropertyValue(target => target.Instance)
-                .ConvertTo(parameter.ParameterType)
-                .LoadForParameter(parameter);
-        }
-
-        method.Code.Emit(OpCodes.Call, constructor);
         
         context.VariableUnboxedTarget.AssignNew(
             constructor,
@@ -205,7 +192,8 @@ public partial class ConstructorInjector
                 context.VariablesInjectionItem[pair.Index]
                     .GetValue()
                     .GetPropertyValue(target => target.Instance)
-                    .ConvertTo(pair.Item.ParameterType)));
+                    .ConvertTo(pair.Item.ParameterType)),
+            inplace: true);
 
         method.Return(method.Value(true));
 
