@@ -159,11 +159,8 @@ public static class InjectionProviderExtensions
         /// </summary>
         /// <param name="provider">Provider to get injections from.</param>
         /// <param name="options">
-        /// Injection options.
-        /// If this parameter is null,
-        /// modified default options will be used: 
-        /// <see cref="InjectorOptions.OnlyNullMembers"/> is true
-        /// and <see cref="InjectorOptions.FailFast"/> is false.
+        /// Injection options. If this parameter is null,
+        /// default options with enabling <see cref="InjectorOptions.OnlyNullMembers"/> will be used.
         /// </param>
         /// <typeparam name="TTarget">Type of this object.</typeparam>
         /// <returns>This object.</returns>
@@ -176,7 +173,6 @@ public static class InjectionProviderExtensions
 
             options ??= InjectorOptions.Default with
             {
-                FailFast = false,
                 OnlyNullMembers = true
             };
             
