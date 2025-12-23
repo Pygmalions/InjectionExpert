@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using EmitToolbox;
+using EmitToolbox.Builders;
 using EmitToolbox.Extensions;
 using EmitToolbox.Symbols;
 using EmitToolbox.Symbols.Literals;
@@ -82,7 +83,7 @@ public partial class MemberInjector
             .ToSymbol();
 
         var variableSucceeded = method.Variable<bool>();
-        variableSucceeded.AssignValue(method.Value(true));
+        variableSucceeded.AssignValue(method.Literal(true));
 
         VariableSymbol variableUnboxedTarget;
         if (type.IsValueType)
@@ -118,7 +119,7 @@ public partial class MemberInjector
             var labelContinue = method.DefineLabel();
 
             // Calculate the member selection condition.
-            IOperationSymbol<bool> isMemberSelected = new NoOperation<bool>(method.Value(false));
+            IOperationSymbol<bool> isMemberSelected = new NoOperation<bool>(method.Literal(false));
             if (attribute != null)
                 isMemberSelected = isMemberSelected.Or(variableAreAttributedMembersSelected);
             if (required)
@@ -129,8 +130,8 @@ public partial class MemberInjector
 
             (ISymbol<MemberInfo> Symbol, Type Type) requester = member switch
             {
-                FieldInfo field => (method.Value(field), field.FieldType),
-                PropertyInfo property => (method.Value(property), property.PropertyType),
+                FieldInfo field => (method.Literal(field), field.FieldType),
+                PropertyInfo property => (method.Literal(property), property.PropertyType),
                 _ => throw new Exception($"Unsupported injecting member type '{member.MemberType}'.")
             };
 
@@ -161,8 +162,8 @@ public partial class MemberInjector
                 [
                     member switch
                     {
-                        FieldInfo fieldRequester => method.Value(fieldRequester),
-                        PropertyInfo propertyRequester => method.Value(propertyRequester),
+                        FieldInfo fieldRequester => method.Literal(fieldRequester),
+                        PropertyInfo propertyRequester => method.Literal(propertyRequester),
                         _ => throw new Exception($"Unsupported requester type '{member.GetType()}'.")
                     },
                     argumentBoxedTarget
@@ -174,7 +175,7 @@ public partial class MemberInjector
                     target => target.GetInjectionItem(
                         Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
                     [
-                        method.Value(requester.Type),
+                        method.Literal(requester.Type),
                         attribute?.Key is { } key
                             ? LiteralSymbolFactory.Create(method, key).ToObject()
                             : method.Null<object>(),
@@ -192,7 +193,7 @@ public partial class MemberInjector
 
                 if (required)
                 {
-                    variableSucceeded.AssignValue(method.Value(false));
+                    variableSucceeded.AssignValue(method.Literal(false));
                     
                     // Throw the exception if the injector should fail fast.
                     labelFailed.GotoIfTrue(variableShouldFailFast);
@@ -246,7 +247,7 @@ public partial class MemberInjector
                     Any<Type>.Value, Any<IInjectionProvider>.Value,
                     Any<InjectionTarget?>.Value, Any<string>.Value),
                 [
-                    method.Value(type), argumentProvider,
+                    method.Literal(type), argumentProvider,
                     variableCurrentRequester.ToNullable(), method.Null<string>()
                 ]);
         }

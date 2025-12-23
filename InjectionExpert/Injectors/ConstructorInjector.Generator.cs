@@ -1,6 +1,6 @@
 using System.Reflection;
-using System.Reflection.Emit;
 using EmitToolbox;
+using EmitToolbox.Builders;
 using EmitToolbox.Extensions;
 using EmitToolbox.Symbols;
 using EmitToolbox.Symbols.Literals;
@@ -94,7 +94,7 @@ public partial class ConstructorInjector
             EmitTryConstructor(context, constructor);
         }
 
-        dynamicMethod.Return(dynamicMethod.Value(false));
+        dynamicMethod.Return(dynamicMethod.Literal(false));
 
         dynamicType.Build();
 
@@ -125,7 +125,7 @@ public partial class ConstructorInjector
     {
         var method = context.Method;
 
-        method.Value(constructor)
+        method.Literal(constructor)
             .Invoke(target => target.GetParameters())
             .ToSymbol(context.VariablesParameterInfo);
 
@@ -153,7 +153,7 @@ public partial class ConstructorInjector
                 .Invoke(
                     target => target.GetInjectionItem(
                         Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
-                    [method.Value(parameter.ParameterType), symbolKey, context.VariableInjectionRequester])
+                    [method.Literal(parameter.ParameterType), symbolKey, context.VariableInjectionRequester])
                 .ToSymbol(variableInjectionItem);
 
             using (method.If(variableInjectionItem.HasValue().Not()))
@@ -168,7 +168,7 @@ public partial class ConstructorInjector
                         () => new InjectionItem(Any<object>.Value, Any<InjectionLifespan>.Value),
                         [
                             method.Null<object>(),
-                            method.Value(InjectionLifespan.Transient)
+                            method.Literal(InjectionLifespan.Transient)
                         ]);
 
                     var variableDefaultParameter = 
@@ -195,7 +195,7 @@ public partial class ConstructorInjector
                     .ConvertTo(pair.Item.ParameterType)),
             inplace: true);
 
-        method.Return(method.Value(true));
+        method.Return(method.Literal(true));
 
         labelEndOfThisAttempt.Mark();
     }
