@@ -1,5 +1,7 @@
 # Injection Expert
 
+[![](https://img.shields.io/nuget/v/InjectionExpert.svg?logo=nuget&color=blue&)](https://www.nuget.org/packages/InjectionExpert)
+
 Injection Expert is a dependency injection framework for .NET, 
 featuring dynamic code generation for high performance and flexibility. 
 It supports constructor and member injection, generic type resolution, and advanced configuration options.
