@@ -1,16 +1,1 @@
-[Version 0.3.0]
-
-In this version, we upgrade the emitting engine to EmitToolbox 0.3.0,
-which provides better stability and helps us find bugs more easily.
-
-Injection entries, such as 'InjectionConstantEntry' are now public classes;
-corresponding API to add and remove entries are also provided.
-
-'MemberInjector' has been reworked, and now developers can easily use 'InjectorOptions'
-to have a finer grained control over the injection behavior, 
-such as what members to inject,
-and whether to record injected members and missing members.
-This is useful for logging and debugging.
-
-We also provide compatibility support for 'IServiceProvider' from 'Microsoft.Extensions.DependencyInjection':
-from 'IInjectionProvider' to 'IServiceProvider' and from 'IServiceProvider' to 'IInjectionProvider'.
+[Version 0.3.2]
