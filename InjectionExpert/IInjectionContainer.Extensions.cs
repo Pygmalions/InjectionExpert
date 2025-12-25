@@ -4,8 +4,38 @@ namespace InjectionExpert;
 
 public static class InjectionContainerExtensions
 {
-    extension<TContainer>(TContainer container) where TContainer : IInjectionContainer
+    extension(IInjectionContainer container)
     {
+        /// <summary>
+        /// Add the specified factory to this container.
+        /// </summary>
+        /// <param name="lifespan">Lifespan of this injection.</param>
+        /// <param name="type">Type that the entry is associated with.</param>
+        /// <param name="factory">Factory delegate that creates instances for requests.</param>
+        /// <param name="key">Optional key of the entry.</param>
+        public IInjectionContainer AddInjection(InjectionLifespan lifespan,
+            Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
+        {
+            container.AddInjection(type, key,
+                new InjectionFactoryEntry<object>(lifespan, factory));
+            return container;
+        }
+
+        /// <summary>
+        /// Add the specified factory to this container.
+        /// </summary>
+        /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
+        /// <param name="lifespan">Lifespan of this injection.</param>
+        /// <param name="factory">Factory delegate that creates instances for requests.</param>
+        /// <param name="key">Optional key of the entry.</param>
+        public IInjectionContainer AddInjection<TInjection>(InjectionLifespan lifespan,
+            InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
+        {
+            container.AddInjection(typeof(TInjection), key,
+                new InjectionFactoryEntry<TInjection>(lifespan, factory));
+            return container;
+        }
+
         /// <summary>
         /// Remove the injection entry for the specified type and key.
         /// </summary>
@@ -14,14 +44,18 @@ public static class InjectionContainerExtensions
         /// <returns>True if the entry is removed, or false if the entry is not found.</returns>
         public bool RemoveInjection<TInjection>(object? key = null)
             => container.RemoveInjection(typeof(TInjection), key);
-        
+
         /// <summary>
         /// Add the specified instance as a constant injection to this container.
         /// </summary>
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="instance">Instance to add.</param>
-        /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton(Type type, object instance, object? key = null)
+        /// <param name="key">
+        /// Optional key of the entry.
+        /// This parameter does not provide a default null
+        /// to differentiate from another method where the second parameter is the key.
+        /// </param>
+        public IInjectionContainer AddSingleton(Type type, object instance, object key)
         {
             container.AddInjection(type, key, new InjectionConstantEntry(instance));
             return container;
@@ -33,7 +67,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
         /// <param name="instance">Instance to add.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton<TInjection>(TInjection instance, object? key = null)
+        public IInjectionContainer AddSingleton<TInjection>(TInjection instance, object? key = null)
         {
             container.AddInjection(typeof(TInjection), key, new InjectionConstantEntry(instance!));
             return container;
@@ -46,7 +80,7 @@ public static class InjectionContainerExtensions
         /// <param name="fromKey">Key to redirect from.</param>
         /// <param name="toType">Type to redirect to.</param>
         /// <param name="toKey">Key to redirect to.</param>
-        public TContainer AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
+        public IInjectionContainer AddRedirection(Type fromType, object? fromKey, Type toType, object? toKey)
         {
             container.AddInjection(fromType, fromKey,
                 new InjectionRedirectionEntry(toType, toKey));
@@ -60,7 +94,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TTo">Type to redirect to.</typeparam>
         /// <param name="fromKey">Key to redirect from.</param>
         /// <param name="toKey">Key to redirect to.</param>
-        public TContainer AddRedirection<TFrom, TTo>(object? fromKey = null, object? toKey = null)
+        public IInjectionContainer AddRedirection<TFrom, TTo>(object? fromKey = null, object? toKey = null)
             => container.AddRedirection(typeof(TFrom), fromKey, typeof(TTo), toKey);
 
         /// <summary>
@@ -70,7 +104,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="implementation">Type to instantiate for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddInjection(InjectionLifespan lifespan,
+        public IInjectionContainer AddInjection(InjectionLifespan lifespan,
             Type type, Type implementation, object? key = null)
         {
             if (!type.ContainsGenericParameters)
@@ -88,7 +122,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="implementation">Type to instantiate for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddTransient(Type type, Type implementation, object? key = null)
+        public IInjectionContainer AddTransient(Type type, Type implementation, object? key = null)
             => container.AddInjection(InjectionLifespan.Transient, type, implementation, key);
 
         /// <summary>
@@ -98,7 +132,7 @@ public static class InjectionContainerExtensions
         /// Type to instantiate for requests. The injection is also added under this type.
         /// </typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddTransient<TImplementation>(object? key = null)
+        public IInjectionContainer AddTransient<TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Transient,
                 typeof(TImplementation), typeof(TImplementation), key);
 
@@ -109,7 +143,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TImplementation">Type to instantiate for requests. 
         /// </typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddTransient<TCategory, TImplementation>(object? key = null)
+        public IInjectionContainer AddTransient<TCategory, TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Transient,
                 typeof(TCategory), typeof(TImplementation), key);
 
@@ -119,7 +153,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="implementation">Type to instantiate for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddScoped(Type type, Type implementation, object? key = null)
+        public IInjectionContainer AddScoped(Type type, Type implementation, object? key = null)
             => container.AddInjection(InjectionLifespan.Scoped, type, implementation, key);
 
         /// <summary>
@@ -129,7 +163,7 @@ public static class InjectionContainerExtensions
         /// Type to instantiate for requests. The injection is also added under this type.
         /// </typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddScoped<TImplementation>(object? key = null)
+        public IInjectionContainer AddScoped<TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Scoped,
                 typeof(TImplementation), typeof(TImplementation), key);
 
@@ -139,7 +173,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TCategory">Category type that this injection is associated with.</typeparam>
         /// <typeparam name="TImplementation">Type to instantiate for requests.</typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddScoped<TCategory, TImplementation>(object? key = null)
+        public IInjectionContainer AddScoped<TCategory, TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Scoped,
                 typeof(TCategory), typeof(TImplementation), key);
 
@@ -149,7 +183,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="implementation">Type to instantiate for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton(Type type, Type implementation, object? key = null)
+        public IInjectionContainer AddSingleton(Type type, Type implementation, object? key = null)
             => container.AddInjection(InjectionLifespan.Singleton, type, implementation, key);
 
         /// <summary>
@@ -159,7 +193,7 @@ public static class InjectionContainerExtensions
         /// Type to instantiate for requests. The injection is also added under this type.
         /// </typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton<TImplementation>(object? key = null)
+        public IInjectionContainer AddSingleton<TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Singleton,
                 typeof(TImplementation), typeof(TImplementation), key);
 
@@ -169,39 +203,9 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TCategory">Category type that this injection is associated with.</typeparam>
         /// <typeparam name="TImplementation">Type to instantiate for requests.</typeparam>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton<TCategory, TImplementation>(object? key = null)
+        public IInjectionContainer AddSingleton<TCategory, TImplementation>(object? key = null)
             => container.AddInjection(InjectionLifespan.Singleton,
                 typeof(TCategory), typeof(TImplementation), key);
-
-        /// <summary>
-        /// Add the specified factory to this container.
-        /// </summary>
-        /// <param name="lifespan">Lifespan of this injection.</param>
-        /// <param name="type">Type that the entry is associated with.</param>
-        /// <param name="factory">Factory delegate that creates instances for requests.</param>
-        /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddInjection(InjectionLifespan lifespan,
-            Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
-        {
-            container.AddInjection(type, key,
-                new InjectionFactoryEntry<object>(lifespan, factory));
-            return container;
-        }
-
-        /// <summary>
-        /// Add the specified factory to this container.
-        /// </summary>
-        /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
-        /// <param name="lifespan">Lifespan of this injection.</param>
-        /// <param name="factory">Factory delegate that creates instances for requests.</param>
-        /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddInjection<TInjection>(InjectionLifespan lifespan,
-            InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
-        {
-            container.AddInjection(typeof(TInjection), key,
-                new InjectionFactoryEntry<TInjection>(lifespan, factory));
-            return container;
-        }
 
         /// <summary>
         /// Add the specified factory as a transient injection to this container.
@@ -209,7 +213,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddTransient(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
+        public IInjectionContainer AddTransient(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Transient, type, factory, key);
 
@@ -219,7 +223,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddTransient<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
+        public IInjectionContainer AddTransient<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Transient, factory, key);
 
@@ -229,7 +233,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddScoped(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
+        public IInjectionContainer AddScoped(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Scoped, type, factory, key);
 
@@ -239,7 +243,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddScoped<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
+        public IInjectionContainer AddScoped<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Scoped, factory, key);
 
@@ -249,7 +253,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
+        public IInjectionContainer AddSingleton(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Singleton, type, factory, key);
 
@@ -259,13 +263,10 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public TContainer AddSingleton<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
+        public IInjectionContainer AddSingleton<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
             => container.AddInjection(InjectionLifespan.Singleton, factory, key);
-    }
 
-    extension(IInjectionContainer container)
-    {
         /// <summary>
         /// Add the specified instance as a constant injection to this container.
         /// </summary>
