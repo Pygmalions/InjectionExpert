@@ -94,7 +94,7 @@ internal static partial class TypeExtensions
         public bool TryMatchGenericBaseType(Type definitionType,
             [NotNullWhen(true)] out Type? matchedBaseType)
         {
-            for (var current = self; current != null; current = self.BaseType)
+            for (var current = self; current != null; current = current.BaseType)
             {
                 if (current.IsGenericType && current.GetGenericTypeDefinition() == definitionType)
                 {

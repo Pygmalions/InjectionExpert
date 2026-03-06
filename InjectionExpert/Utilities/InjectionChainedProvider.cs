@@ -6,24 +6,23 @@ namespace InjectionExpert.Utilities;
 /// If none of the providers can provide the injection, it returns null.
 /// </summary>
 /// <param name="providers">
-/// Providers to chained together.
+/// Providers to chain together.
 /// This enumerable sequence will be enumerated for each injection request.
 /// </param>
 public class InjectionChainedProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
 {
-    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
-    {
-        foreach (var provider in providers)
-        {
-            var entry = provider?.GetInjectionItem(type, key, target);
-            if (entry != null)
-                return entry;
-        }
-        return null;
-    }
+    public InjectionEntry? GetEntry(Type type, object? key = null)
+        => providers.Select(provider => provider?.GetEntry(type, key)).FirstOrDefault(entry => entry != null);
 
-    public IInjectionProvider.IScope NewScope(InjectionTarget target) =>
-        InjectionScope.New(this, null, target);
+    public bool HasEntry(Type type, object? key = null)
+        => providers.Any(provider => provider?.HasEntry(type, key) == true);
+
+    public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
+        => providers
+            .Select(provider => provider?.GetInjection(type, key, target))
+            .FirstOrDefault(injection => injection != null);
+
+    public IInjectionScope NewScope() => new InjectionScope(this);
 }
 
 public static class InjectionChainedProviderExtensions

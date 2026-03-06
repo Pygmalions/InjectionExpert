@@ -6,36 +6,37 @@ namespace InjectionExpert.Tests.Entries;
 public class TestInjectionConstantEntry
 {
     [Test]
-    public void GetInjection_ReturnsSameInstance()
+    public void GetInjection_EntryHasConstantValue_ReturnsSameValue()
     {
-        var instance = new object();
-        var entry = new InjectionConstantEntry(instance);
-
-        var v1 = entry.GetInjection();
-        var v2 = entry.GetInjection();
+        var value = new object();
+        var entry = new InjectionConstantEntry(value);
+        var provider = new InjectionContainer();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(v1, Is.SameAs(instance));
-            Assert.That(v2, Is.SameAs(instance));
+            Assert.That(entry.Lifespan, Is.EqualTo(InjectionLifespan.Singleton));
+            Assert.That(entry.Value, Is.SameAs(value));
+            Assert.That(entry.GetInjection(provider, typeof(object), null, default), Is.SameAs(value));
         }
     }
 
     [Test]
-    public void InvalidateCache_NoEffect_ReturnsFalse()
+    public void IsAssignableTo_CheckingDifferentTypes_ReturnsExpected()
     {
-        var randomInt = TestContext.CurrentContext.Random.Next(1, int.MaxValue);
-        var entry = new InjectionConstantEntry(randomInt);
-        Assert.That(entry.InvalidateCache(), Is.False);
+        var entry = new InjectionConstantEntry("text");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(entry.IsAssignableTo(typeof(object)), Is.True);
+            Assert.That(entry.IsAssignableTo(typeof(int)), Is.False);
+        }
     }
 
     [Test]
-    public void ToString_ContainsConstantValue()
+    public void ToString_Called_ReturnsConstantText()
     {
-        var length = TestContext.CurrentContext.Random.Next(3, 16);
-        var value = new string(Enumerable.Range(0, length)
-            .Select(_ => (char)('a' + TestContext.CurrentContext.Random.Next(0, 26))).ToArray());
-        var entry = new InjectionConstantEntry(value);
-        Assert.That(entry.ToString(), Does.Contain("Constant").And.Contain(value));
+        var entry = new InjectionConstantEntry("abc");
+
+        Assert.That(entry.ToString(), Is.EqualTo("(Constant, abc)"));
     }
 }

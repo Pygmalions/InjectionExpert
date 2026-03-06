@@ -1,212 +1,114 @@
+using Moq;
+
 namespace InjectionExpert.Tests;
 
 [TestFixture, TestOf(typeof(InjectionScope))]
 public class TestInjectionScope
 {
-    private sealed class Dummy
+    [Test]
+    public void GetInjection_EntryNotFound_ReturnsNull()
     {
+        var provider = new Mock<IInjectionProvider>();
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns((InjectionEntry?)null);
+        var scope = new InjectionScope(provider.Object);
+
+        var injection = scope.GetInjection(typeof(string));
+
+        Assert.That(injection, Is.Null);
     }
 
     [Test]
-    public void Scoped_CachedWithinSameScope()
+    public void HasEntry_ProviderContainsEntry_ReturnsExpected()
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Scoped, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
+        var provider = new Mock<IInjectionProvider>();
+        provider.Setup(target => target.HasEntry(typeof(string), null)).Returns(true);
+        provider.Setup(target => target.HasEntry(typeof(int), null)).Returns(false);
+        var scope = new InjectionScope(provider.Object);
 
-        using var scope = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        var aItem = scope.GetInjectionItem(typeof(object))!;
-        var bItem = scope.GetInjectionItem(typeof(object))!;
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(aItem?.Instance, Is.SameAs(bItem?.Instance));
-            Assert.That(created, Is.EqualTo(1));
-        }
+        Assert.That(scope.HasEntry(typeof(string)), Is.True);
+        Assert.That(scope.HasEntry(typeof(int)), Is.False);
+        provider.Verify(target => target.HasEntry(typeof(string), null), Times.Once);
+        provider.Verify(target => target.HasEntry(typeof(int), null), Times.Once);
     }
 
     [Test]
-    public void ChildScope_SeesParentsScopedInstance()
+    public void GetInjection_EntryIsScoped_ReusesInstance()
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Scoped, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
+        var provider = new Mock<IInjectionProvider>();
+        var createCount = 0;
+        var entry = new Mock<InjectionEntry>();
+        entry.SetupGet(target => target.Lifespan).Returns(InjectionLifespan.Scoped);
+        entry.Setup(target => target.GetInjection(It.IsAny<IInjectionProvider>(), typeof(string), It.IsAny<object?>(), default))
+            .Returns(() => $"v-{++createCount}");
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns(entry.Object);
+        var scope = new InjectionScope(provider.Object);
 
-        using var parent = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        var parentObj = parent.GetInjection<object>();
+        var first = scope.GetInjection(typeof(string));
+        var second = scope.GetInjection(typeof(string));
 
-        using var child = parent.NewScope(new InjectionTarget(typeof(Dummy)));
-        var childObj = child.GetInjection<object>();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(childObj, Is.SameAs(parentObj));
-            Assert.That(created, Is.EqualTo(1));
-            Assert.That(child.Parent, Is.SameAs(parent));
-        }
+        Assert.That(first, Is.EqualTo("v-1"));
+        Assert.That(second, Is.SameAs(first));
+        Assert.That(createCount, Is.EqualTo(1));
+        provider.Verify(target => target.GetEntry(typeof(string), It.IsAny<object?>()), Times.Once);
     }
 
     [Test]
-    public void ParentScope_DoesNotSeeChildrenScopedInstance()
+    public void GetInjection_CircularDependencyDetected_ThrowsInjectionFailureException()
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Scoped, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
+        var provider = new Mock<IInjectionProvider>();
+        var entry = new Mock<InjectionEntry>();
+        entry.SetupGet(target => target.Lifespan).Returns(InjectionLifespan.Transient);
+        entry.Setup(target => target.GetInjection(It.IsAny<IInjectionProvider>(), typeof(string), It.IsAny<object?>(), default))
+            .Returns((IInjectionProvider injectionProvider, Type _, object? _, InjectionTarget _) =>
+                injectionProvider.GetInjection(typeof(string))!);
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns(entry.Object);
+        var scope = new InjectionScope(provider.Object);
 
-        using var parent = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        using var child = parent.NewScope(new InjectionTarget(typeof(Dummy)));
-
-        var childObj = child.RequireInjection<object>();
-        var parentObj = parent.RequireInjection<object>();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(childObj, Is.Not.SameAs(parentObj));
-            Assert.That(created, Is.EqualTo(2));
-        }
+        Assert.Throws<InjectionFailureException>(() => scope.GetInjection(typeof(string)));
     }
 
     [Test]
-    public void SiblingScopes_WhenParentNotCached_AreIsolated()
+    public async Task DisposeAsync_CalledAfterTrackingDisposables_DisposesInReverseOrderAndThrowsOnSecondCall()
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Scoped, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
+        var disposeLog = new List<string>();
+        var provider = new Mock<IInjectionProvider>();
+        var syncEntry = new Mock<InjectionEntry>();
+        syncEntry.SetupGet(target => target.Lifespan).Returns(InjectionLifespan.Transient);
+        syncEntry.Setup(target => target.GetInjection(It.IsAny<IInjectionProvider>(), typeof(object), "sync", default))
+            .Returns(new SyncDisposable("sync", disposeLog));
+        var asyncEntry = new Mock<InjectionEntry>();
+        asyncEntry.SetupGet(target => target.Lifespan).Returns(InjectionLifespan.Transient);
+        asyncEntry.Setup(target => target.GetInjection(It.IsAny<IInjectionProvider>(), typeof(object), "async", default))
+            .Returns(new AsyncDisposable("async", disposeLog));
 
-        using var parent = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        using var childA = parent.NewScope(new InjectionTarget(typeof(Dummy)));
-        using var childB = parent.NewScope(new InjectionTarget(typeof(Dummy)));
+        provider.Setup(target => target.GetEntry(typeof(object), "sync")).Returns(syncEntry.Object);
+        provider.Setup(target => target.GetEntry(typeof(object), "async")).Returns(asyncEntry.Object);
 
-        var a = childA.RequireInjection<object>();
-        var b = childB.RequireInjection<object>();
+        var scope = new InjectionScope(provider.Object);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(a, Is.Not.SameAs(b));
-            Assert.That(created, Is.EqualTo(2));
-        }
+        _ = scope.GetInjection(typeof(object), "sync");
+        _ = scope.GetInjection(typeof(object), "async");
+
+        await scope.DisposeAsync();
+
+        Assert.That(disposeLog, Is.EqualTo(new[] { "async", "sync" }));
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await scope.DisposeAsync());
     }
 
-    [Test]
-    public void SiblingScopes_WhenParentCached_Share()
+    private sealed class SyncDisposable(string id, List<string> log) : IDisposable
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Scoped, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
-
-        using var parent = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        var p = parent.RequireInjection<object>();
-        using var childA = parent.NewScope(new InjectionTarget(typeof(Dummy)));
-        using var childB = parent.NewScope(new InjectionTarget(typeof(Dummy)));
-
-        var a = childA.RequireInjection<object>();
-        var b = childB.RequireInjection<object>();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(a, Is.SameAs(b));
-            Assert.That(a, Is.SameAs(p));
-            Assert.That(created, Is.EqualTo(1));
-        }
+        public void Dispose() => log.Add(id);
     }
 
-    [Test]
-    public void Transient_NotCached()
+    private sealed class AsyncDisposable(string id, List<string> log) : IAsyncDisposable
     {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Transient, typeof(object), (_, _, _, _) =>
+        public ValueTask DisposeAsync()
         {
-            created++;
-            return new object();
-        });
-
-        using var scope = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        var a = scope.RequireInjection<object>();
-        var b = scope.RequireInjection<object>();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(a, Is.Not.SameAs(b));
-            Assert.That(created, Is.EqualTo(2));
-        }
-    }
-
-    [Test]
-    public void Singleton_Behavior_UnchangedAcrossScopes()
-    {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Singleton, typeof(object), (_, _, _, _) =>
-        {
-            created++;
-            return new object();
-        });
-
-        using var scope1 = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        using var scope2 = container.NewScope(new InjectionTarget(typeof(Dummy)));
-
-        var a = scope1.RequireInjection<object>();
-        var b = scope1.RequireInjection<object>();
-        var c = scope2.RequireInjection<object>();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(a, Is.SameAs(b));
-            Assert.That(a, Is.SameAs(c));
-            Assert.That(created, Is.EqualTo(1));
-        }
-    }
-
-    [Test]
-    public void Properties_TargetAndParent_AreSet()
-    {
-        var container = new InjectionContainer();
-        var target = new InjectionTarget(typeof(Dummy));
-        using var scope = container.NewScope(target);
-        Assert.That(scope.Target, Is.EqualTo(target));
-        Assert.That(scope.Parent, Is.Null);
-
-        var childTarget = new InjectionTarget(typeof(string));
-        using var child = scope.NewScope(childTarget);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(child.Target, Is.EqualTo(childTarget));
-            Assert.That(child.Parent, Is.SameAs(scope));
-        }
-    }
-
-    [Test]
-    public void Disposed_GetAndNewScope_Throws()
-    {
-        var container = new InjectionContainer();
-        var scope = container.NewScope(new InjectionTarget(typeof(Dummy)));
-        scope.Dispose();
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.Throws<ObjectDisposedException>(() => scope.GetInjectionItem(typeof(object)));
-            Assert.Throws<ObjectDisposedException>(() => scope.NewScope());
+            log.Add(id);
+            return ValueTask.CompletedTask;
         }
     }
 }

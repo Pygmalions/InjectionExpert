@@ -5,44 +5,47 @@ namespace InjectionExpert.Tests.Entries;
 [TestFixture, TestOf(typeof(InjectionTypeEntry))]
 public class TestInjectionTypeEntry
 {
-    private class StubEmptyClass {}
+    private sealed class PlainType;
 
     [Test]
-    public void Transient_CreatesNewInstances()
+    public void Constructor_ImplementationIsGenericTypeDefinition_ThrowsArgumentException()
     {
-        var container = new InjectionContainer();
-        var entry = new InjectionTypeEntry(InjectionLifespan.Transient, typeof(StubEmptyClass));
+        var exception = Assert.Throws<ArgumentException>(() =>
+            _ = new InjectionTypeEntry(InjectionLifespan.Transient, typeof(List<>)));
 
-        var a = entry.GetInjection(container);
-        var b = entry.GetInjection(container);
-
-        Assert.That(a, Is.Not.SameAs(b));
+        Assert.That(exception!.ParamName, Is.EqualTo("implementation"));
     }
 
     [Test]
-    public void Singleton_Caches_And_Invalidate()
+    public void IsAssignableTo_ImplementationTypeIsString_ReturnsExpected()
     {
-        var container = new InjectionContainer();
-        var entry = new InjectionTypeEntry(InjectionLifespan.Singleton, typeof(StubEmptyClass));
+        var entry = new InjectionTypeEntry(InjectionLifespan.Scoped, typeof(string));
 
-        var a = entry.GetInjection(container);
-        var b = entry.GetInjection(container);
-        Assert.That(a, Is.SameAs(b));
-
-        var invalidated = entry.InvalidateCache();
-        var c = entry.GetInjection(container);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(invalidated, Is.True);
-            Assert.That(c, Is.Not.SameAs(a));
+            Assert.That(entry.Lifespan, Is.EqualTo(InjectionLifespan.Scoped));
+            Assert.That(entry.Implementation, Is.EqualTo(typeof(string)));
+            Assert.That(entry.IsAssignableTo(typeof(object)), Is.True);
+            Assert.That(entry.IsAssignableTo(typeof(IDisposable)), Is.False);
         }
     }
 
     [Test]
-    public void ToString_ContainsImplementationType()
+    public void GetInjection_ImplementationIsConcreteType_ReturnsInstance()
     {
-        var entry = new InjectionTypeEntry(InjectionLifespan.Transient, typeof(StubEmptyClass));
-        Assert.That(entry.ToString(), 
-            Does.Contain("Type").And.Contain(nameof(StubEmptyClass)));
+        var provider = new InjectionContainer();
+        var entry = new InjectionTypeEntry(InjectionLifespan.Transient, typeof(PlainType));
+
+        var instance = entry.GetInjection(provider, typeof(PlainType), null, default);
+
+        Assert.That(instance, Is.TypeOf<PlainType>());
+    }
+
+    [Test]
+    public void ToString_Called_ReturnsImplementationText()
+    {
+        var entry = new InjectionTypeEntry(InjectionLifespan.Singleton, typeof(string));
+
+        Assert.That(entry.ToString(), Is.EqualTo($"(Type: {typeof(string)})"));
     }
 }

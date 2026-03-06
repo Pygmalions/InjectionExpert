@@ -1,115 +1,140 @@
+using System.ComponentModel;
 using InjectionExpert.Utilities.Internal;
-using Microsoft.Extensions.ObjectPool;
 
 namespace InjectionExpert;
 
-public class InjectionScope : IInjectionProvider.IScope
+public class InjectionScope : IInjectionScope
 {
-    private class ScopePooledPolicy : IPooledObjectPolicy<InjectionScope>
-    {
-        public InjectionScope Create() => new();
+    private readonly IInjectionProvider _provider;
 
-        public bool Return(InjectionScope instance)
-        {
-            instance._target = default;
-            instance._parent = null!;
-            instance._provider = null;
-            instance._scopedKeyedInjections?.Clear();
-            instance._scopedUnkeyedInjections?.Clear();
-            return true;
-        }
-    }
+    private readonly InjectionScope? _upstream;
 
-    private static readonly DefaultObjectPool<InjectionScope> PooledScopes =
-        new(new ScopePooledPolicy());
+    private readonly InjectionScope _root;
 
-    private InjectionScope? _parent;
+    private List<object>? _disposableInjections;
 
-    private IInjectionProvider? _provider;
-
-    private KeyedDictionary<Type, object, object>? _scopedKeyedInjections;
-
-    private Dictionary<Type, object>? _scopedUnkeyedInjections;
-
-    private InjectionTarget _target;
-
-    private InjectionScope()
-    {
-    }
-
-    public InjectionTarget Target => _target;
-
-    public IInjectionProvider.IScope? Parent => _parent;
-
-    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
-    {
-        if (_provider == null)
-            throw new ObjectDisposedException(nameof(InjectionScope),
-                "Cannot get injection from this scope: scope is already disposed.");
-
-        // Search in the scope chain for the scoped cache.
-        for (var current = this; current != null; current = current._parent)
-        {
-            if (key is null)
-            {
-                if (current._scopedUnkeyedInjections?.TryGetValue(type, out var value) == true)
-                    return new InjectionItem(value, InjectionLifespan.Scoped);
-            }
-            else
-            {
-                if (current._scopedKeyedInjections?.TryGetValue(type, key, out var value) == true)
-                    return new InjectionItem(value, InjectionLifespan.Scoped);
-            }
-        }
-
-        var entry = _provider.GetInjectionItem(type, key, target);
-        if (entry?.Lifespan != InjectionLifespan.Scoped)
-            return entry;
-
-        if (key is null)
-        {
-            _scopedUnkeyedInjections ??= new Dictionary<Type, object>();
-            _scopedUnkeyedInjections[type] = entry.Value.Instance;
-        }
-        else
-        {
-            _scopedKeyedInjections ??= new KeyedDictionary<Type, object, object>();
-            _scopedKeyedInjections.SetValue(type, key, entry.Value.Instance);
-        }
-
-        return entry;
-    }
+    private bool _disposed;
 
     /// <summary>
-    /// Create a new nested scope of this scope.
+    /// Currently active injection requests.
     /// </summary>
-    /// <returns>New nested sub-scope of the current scope.</returns>
-    public IInjectionProvider.IScope NewScope(InjectionTarget target)
+    private HashSet<InjectionRequest>? _requests = [];
+
+    private KeyedDictionary<Type, object, object>? _scopedInjections;
+
+    private KeyedDictionary<Type, object, object>? _singletonInjections;
+
+    public InjectionScope(IInjectionProvider provider) : this(provider, null)
     {
-        if (_provider == null)
-            throw new ObjectDisposedException(nameof(InjectionScope),
-                "Cannot create a new scope from this scope: scope is already disposed.");
-        return New(_provider, this, target);
     }
 
-    public void Dispose()
+    private InjectionScope(IInjectionProvider provider, InjectionScope? upstream)
     {
-        _parent = null;
-        _scopedKeyedInjections?.Clear();
-        _scopedUnkeyedInjections?.Clear();
-        if (_provider == null)
+        _provider = provider;
+        _upstream = upstream;
+        _root = upstream?._root ?? this;
+    }
+
+    public IInjectionScope NewScope()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return new InjectionScope(_provider, this);
+    }
+
+    InjectionEntry? IInjectionProvider.GetEntry(Type type, object? key)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _provider.GetEntry(type, key);
+    }
+
+    public bool HasEntry(Type type, object? key = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _provider.HasEntry(type, key);
+    }
+
+    private object? SearchCachedInjection(Type type, object key)
+    {
+        if (_scopedInjections?.GetValueOrDefault(type, key) is { } scoped)
+            return scoped;
+
+        if (_upstream?.SearchCachedInjection(type, key) is { } inherited)
+            return inherited;
+
+        return _singletonInjections?.GetValueOrDefault(type, key);
+    }
+
+    public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        key ??= IInjectionProvider.NullKey.Instance;
+
+        if (SearchCachedInjection(type, key) is { } cached)
+            return cached;
+
+        if (_provider.GetEntry(type, key) is not { } entry)
+            return null;
+
+        var request = new InjectionRequest(type, key, target);
+
+        _requests ??= [];
+        if (!_requests.Add(request))
+            throw new InjectionFailureException(type, key, this, target,
+                "Circular dependency detected.");
+
+        var instance = entry.GetInjection(this, type, key, target);
+
+        switch (entry.Lifespan)
+        {
+            case InjectionLifespan.Scoped:
+                (_scopedInjections ??= []).SetValue(type, key, instance);
+                break;
+            case InjectionLifespan.Singleton:
+                (_root._singletonInjections ??= []).SetValue(type, key, instance);
+                break;
+            case InjectionLifespan.Transient:
+                break;
+            default:
+                throw new InvalidEnumArgumentException(
+                    nameof(entry.Lifespan), (int)entry.Lifespan, typeof(InjectionLifespan));
+        }
+
+        if (instance is IDisposable or IAsyncDisposable)
+            (_disposableInjections ??= []).Add(instance);
+
+        _requests.Remove(request);
+
+        return instance;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _disposed = true;
+
+        GC.SuppressFinalize(this);
+
+        if (_disposableInjections == null)
             return;
-        _provider = null;
-        PooledScopes.Return(this);
+
+        foreach (var instance in ((IEnumerable<object>)_disposableInjections).Reverse())
+        {
+            switch (instance)
+            {
+                case IAsyncDisposable disposable:
+                    await disposable.DisposeAsync().ConfigureAwait(false);
+                    break;
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+            }
+        }
+
+        _scopedInjections?.Clear();
+        _disposableInjections.Clear();
+        _disposableInjections = null;
     }
 
-    public static InjectionScope New(
-        IInjectionProvider provider, InjectionScope? parent, InjectionTarget target)
-    {
-        var scope = PooledScopes.Get();
-        scope._provider = provider;
-        scope._parent = parent;
-        scope._target = target;
-        return scope;
-    }
+    private record struct InjectionRequest(Type Type, object? Key, InjectionTarget Target);
 }

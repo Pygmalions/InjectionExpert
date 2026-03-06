@@ -1,9 +1,9 @@
-﻿using System.Runtime.CompilerServices;
-using System.Reflection;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using InjectionExpert.Injectors;
 using JetBrains.Annotations;
 
-namespace InjectionExpert.Tests;
+namespace InjectionExpert.Tests.Injectors;
 
 [TestFixture, TestOf(typeof(MemberInjector))]
 public class TestMemberInjector
@@ -19,14 +19,14 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_Create_NotNull()
+    public void For_PrivateType_ReturnsInjectorInstance()
     {
         var injector = MemberInjector.For(typeof(StubMemberInjectionTarget));
         Assert.That(injector, Is.Not.Null);
     }
 
     [Test]
-    public void Injector_InjectFields()
+    public void Inject_TargetHasInjectableFields_InjectsAllFields()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -48,7 +48,7 @@ public class TestMemberInjector
     }
     
     [Test]
-    public void Injector_InjectFields_RecordsInjections()
+    public void Inject_TrackingInjectedTargets_RecordsInjectedMembers()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -56,7 +56,7 @@ public class TestMemberInjector
             .AddSingleton(1.0)
             .AddSingleton("Sample");
         var sample = new StubMemberInjectionTarget();
-        var foundTargets = new List<(InjectionTarget, InjectionItem)>();
+        var foundTargets = new List<(InjectionTarget, object)>();
         MemberInjector
             .For(typeof(StubMemberInjectionTarget))
             .Inject(sample, container, InjectorOptions.Default with
@@ -85,7 +85,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_MissingRequired_FailFast_ThrowsException()
+    public void Inject_RequiredDependencyMissingAndFailFast_ThrowsInjectionFailureException()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -105,7 +105,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_MissingRequired_NotFailFast_RecordsMissingTarget()
+    public void Inject_RequiredDependencyMissingAndFailFastDisabled_ReturnsFalse()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -134,7 +134,7 @@ public class TestMemberInjector
     }
     
     [Test]
-    public void Injector_MissingAttributed_ReturnsTrue()
+    public void Inject_OnlyOptionalMemberMissingAndFailFastDisabled_ReturnsTrue()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -163,7 +163,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_InjectProperties()
+    public void Inject_TargetHasInjectableProperties_InjectsProperties()
     {
         var container = new InjectionContainer()
             .AddSingleton(1);
@@ -182,7 +182,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_InjectOnlyNull_ReferenceTypes()
+    public void Inject_OnlyNullMembersEnabledForReferenceTypes_UpdatesOnlyNullMembers()
     {
         var container = new InjectionContainer()
             .AddSingleton(new StrongBox<int>(1));
@@ -213,7 +213,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_InjectOnlyNull_NullableTypes()
+    public void Inject_OnlyNullMembersEnabledForNullableValueTypes_UpdatesOnlyNullMembers()
     {
         var container = new InjectionContainer()
             .AddSingleton((int?)1)
@@ -245,7 +245,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_WithKeys()
+    public void Inject_MembersUseKeys_InjectsMatchingKeyedDependencies()
     {
         var container = new InjectionContainer()
             .AddSingleton("Value1", 1)
@@ -270,7 +270,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_WithIgnoredMembers_Skips()
+    public void Inject_MemberIsMarkedIgnored_SkipsIgnoredMember()
     {
         var container = new InjectionContainer()
             .AddSingleton(3);
@@ -302,7 +302,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Injector_WithRequiredInitMembers_Injects()
+    public void Inject_TargetHasRequiredInitMembers_InjectsRequiredInitMembers()
     {
         var container = new InjectionContainer()
             .AddSingleton(3);
@@ -324,7 +324,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_NoMatchingDependency_ReturnsFalse_NoUpdate()
+    public void Update_NoMatchingDependency_ReturnsFalseWithoutChanges()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -346,7 +346,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_UpdateFieldAndProperty()
+    public void Update_MatchingDependencyExists_UpdatesFieldAndProperty()
     {
         var sample = new StubMemberInjectionTarget
         {
@@ -367,7 +367,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_OnlyNullMembers_ForReferenceTypes()
+    public void Update_OnlyNullMembersEnabledForReferenceTypes_UpdatesOnlyNullMembers()
     {
         var sample = new StubWithObjects
         {
@@ -390,7 +390,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_OnlyNullMembers_ForNullableValueTypes()
+    public void Update_OnlyNullMembersEnabledForNullableValueTypes_UpdatesOnlyNullMembers()
     {
         var sample = new StubWithNullable
         {
@@ -415,7 +415,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_WithKeys_UpdatesOnlyMatchingKey()
+    public void Update_MembersUseKeys_UpdatesOnlyMatchingKeys()
     {
         var target = new StubWithKeys
         {
@@ -441,7 +441,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Update_OnlyNullMembers_ReturnsFalse_NoUpdate()
+    public void Update_OnlyNullMembersEnabledAndNoNullTarget_ReturnsFalseWithoutChanges()
     {
         var target = new StubWithObjects
         {
@@ -461,7 +461,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Dependencies_BasicAttributedMembers()
+    public void Dependencies_TargetHasAttributedMembers_ReturnsAllAttributedDependencies()
     {
         var injector = MemberInjector.For(typeof(StubMemberInjectionTarget));
         var deps = injector.Dependencies.ToList();
@@ -486,7 +486,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Dependencies_WithKeys_AreReported()
+    public void Dependencies_MembersUseKeys_ReportsDependenciesWithKeys()
     {
         var injector = MemberInjector.For(typeof(StubWithKeys));
         var deps = injector.Dependencies.ToList();
@@ -502,7 +502,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Dependencies_Ignores_DisabledAttributedMembers()
+    public void Dependencies_MemberIsDisabled_IgnoresDisabledMember()
     {
         var injector = MemberInjector.For(typeof(StubWithIgnoredMembers));
         var deps = injector.Dependencies.ToList();
@@ -515,7 +515,7 @@ public class TestMemberInjector
     }
 
     [Test]
-    public void Dependencies_Include_RequiredInitMembers()
+    public void Dependencies_TargetHasRequiredInitMembers_IncludesRequiredInitDependencies()
     {
         var injector = MemberInjector.For(typeof(StubWithInitOnlyMembers));
         var deps = injector.Dependencies.ToList();

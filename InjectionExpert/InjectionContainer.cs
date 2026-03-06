@@ -1,248 +1,75 @@
-using System.Collections;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using InjectionExpert.Entries;
 using InjectionExpert.Utilities.Internal;
-using Microsoft.Extensions.Logging;
 
 namespace InjectionExpert;
 
-public class InjectionContainer : IInjectionContainer
+public class InjectionContainer : IInjectionContainer, IAsyncDisposable
 {
-    private readonly Dictionary<Type, EntryGroup> _groups = [];
+    private readonly KeyedDictionary<Type, object, InjectionEntry> _concreteEntries = new();
 
-    [Injection] public ILogger<InjectionContainer>? Logger { protected get; init; }
-
-    public InjectionEntry? GetInjectionEntry(Type type, object? key)
-    {
-        return !_groups.TryGetValue(type, out var group)
-            ? (key is null ? group.UnkeyedItem : group.KeyedItems?.GetValueOrDefault(key))?.Entry
-            : null;
-    }
-
-    public void AddInjection(Type type, object? key, InjectionEntry entry)
-    {
-        ref var group = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, type, out _);
-        if (key is null)
-        {
-            if (group.UnkeyedItem is null)
-            {
-                group.UnkeyedItem = new EntryItem(entry);
-                if (Logger?.IsEnabled(LogLevel.Information) is true)
-                    Logger.LogInformation("Injection Added: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                        type, key, entry);
-            }
-            else
-            {
-                group.UnkeyedItem.Entry = entry;
-                if (Logger?.IsEnabled(LogLevel.Information) is true)
-                    Logger.LogInformation("Injection Replaced: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                        type, key, entry);
-            }
-
-            return;
-        }
-
-        group.KeyedItems ??= new Dictionary<object, EntryItem>();
-        ref var item = ref CollectionsMarshal.GetValueRefOrAddDefault(
-            group.KeyedItems, key, out _);
-        if (item is null)
-        {
-            item = new EntryItem(entry);
-            if (Logger?.IsEnabled(LogLevel.Information) is true)
-                Logger.LogInformation("Injection Added: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                    type, key, entry);
-        }
-        else
-        {
-            item.Entry = entry;
-            if (Logger?.IsEnabled(LogLevel.Information) is true)
-                Logger.LogInformation("Injection Replaced: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                    type, key, entry);
-        }
-    }
-
-    public bool TryAddInjection(Type type, object? key, InjectionEntry entry)
-    {
-        ref var group = ref CollectionsMarshal.GetValueRefOrAddDefault(_groups, type, out _);
-        if (key is null)
-        {
-            if (group.UnkeyedItem is not null)
-                return false;
-            group.UnkeyedItem = new EntryItem(entry);
-            if (Logger?.IsEnabled(LogLevel.Information) is true)
-                Logger.LogInformation("Injection Added: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                    type, key, entry);
-            return true;
-        }
-
-        group.KeyedItems ??= new Dictionary<object, EntryItem>();
-        ref var item = ref CollectionsMarshal.GetValueRefOrAddDefault(
-            group.KeyedItems, key, out _);
-        if (item is not null)
-            return false;
-        item = new EntryItem(entry);
-        if (Logger?.IsEnabled(LogLevel.Information) is true)
-            Logger.LogInformation("Injection Added: ({Type}, Key: {Key}) -> {InjectionEntry}",
-                type, key, entry);
-        return true;
-    }
-
-    public bool RemoveInjection(Type type, object? key)
-    {
-        ref var group = ref CollectionsMarshal.GetValueRefOrNullRef(_groups, type);
-        if (Unsafe.IsNullRef(ref group))
-            return false;
-        if (key is not null)
-        {
-            if (group.KeyedItems?.Remove(key, out var keyedItem) is not true)
-                return false;
-            keyedItem.IsValid = false;
-            return true;
-        }
-
-        if (group.UnkeyedItem == null)
-            return false;
-        group.UnkeyedItem.IsValid = false;
-        group.UnkeyedItem = null;
-        if (Logger?.IsEnabled(LogLevel.Information) is true)
-            Logger.LogInformation("Injection Removed: ({Type}, Key: {Key})", type, key);
-        return true;
-    }
-
+    private readonly KeyedDictionary<Type, object, InjectionEntry> _genericEntries = new();
+    
     /// <summary>
-    /// Get an injection from this container.
+    /// Root scope of the injection container.
     /// </summary>
-    /// <param name="type">Type of the injection.</param>
-    /// <param name="key">The key for the requested injection.</param>
-    /// <param name="target">This parameter is ignored.</param>
-    /// <returns>Injection resource, or null if not found.</returns>
-    public InjectionItem? GetInjectionItem(Type type, object? key, InjectionTarget target)
+    private readonly InjectionScope _root;
+
+    public InjectionContainer()
     {
-        var entry = SearchEntry(type, key);
-        return entry != null
-            ? new InjectionItem(entry.GetInjection(this, type, null, target), entry.Lifespan)
-            : null;
+        _root = new InjectionScope(this);
     }
 
-    public IInjectionProvider.IScope NewScope(InjectionTarget target = default)
-        => InjectionScope.New(this, null, target);
+    public IInjectionScope NewScope() => new InjectionScope(this);
 
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    public IEnumerator<(Type Type, object? Key, InjectionEntry Entry)> GetEnumerator()
+    public InjectionEntry? GetEntry(Type type, object? key = null)
     {
-        foreach (var (type, group) in _groups)
-        {
-            if (group.UnkeyedItem is { } unkeyedItem)
-                yield return (type, null, unkeyedItem.Entry);
-            if (group.KeyedItems is null)
-                continue;
-            foreach (var (key, keyedItem) in group.KeyedItems)
-                yield return (type, key, keyedItem.Entry);
-        }
+        key ??= IInjectionProvider.NullKey.Instance;
+        if (!type.IsGenericTypeDefinition && _concreteEntries.TryGetValue(type, key, out var entry) ||
+            type.IsGenericType && _genericEntries.TryGetValue(type.GetGenericTypeDefinition(), key, out entry))
+            return entry;
+        return null;
     }
 
-    public void Clear()
+    public bool HasEntry(Type type, object? key = null)
     {
-        _groups.Clear();
-        Logger?.LogInformation("All entries are removed.");
+        key ??= IInjectionProvider.NullKey.Instance;
+        return !type.IsGenericTypeDefinition && _concreteEntries.ContainsKey(type, key) ||
+                type.IsGenericType && _genericEntries.ContainsKey(type.GetGenericTypeDefinition(), key);
     }
 
-    public void InvalidateCache()
-    {
-        foreach (var (_, entry) in _groups)
-        {
-            entry.UnkeyedItem?.Entry.InvalidateCache();
-            if (entry.KeyedItems is null)
-                continue;
-            foreach (var (_, keyedEntry) in entry.KeyedItems)
-                keyedEntry.Entry.InvalidateCache();
-        }
+    public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
+        => _root.GetInjection(type, key, target);
 
-        Logger?.LogInformation("All cache are invalidated.");
+    public IEnumerable<(Type Type, object? Key, InjectionEntry Entry)> Entries
+        => _concreteEntries.Concat(_genericEntries)
+            .Select(tuple => (tuple.PrimaryKey,
+            tuple.SecondaryKey is IInjectionProvider.NullKey ? null : tuple.SecondaryKey,
+            tuple.Value));
+
+    public void AddEntry(Type type, object? key, InjectionEntry entry)
+    {
+        if (!entry.IsAssignableTo(type))
+            throw new ArgumentException(
+                $"The injection in entry is not assignable to category type '{type}'.", nameof(entry));
+        (type.IsGenericTypeDefinition ? _genericEntries : _concreteEntries)
+            .SetValue(type, key ?? IInjectionProvider.NullKey.Instance, entry);
     }
 
-    private const int MaxRedirectionDepth = 1000;
+    public bool TryAddEntry(Type type, object? key, InjectionEntry entry)
+        => (type.IsGenericTypeDefinition ? _genericEntries : _concreteEntries)
+            .TrySetValue(type, key ?? IInjectionProvider.NullKey.Instance, entry);
 
-    private InjectionEntry? SearchEntry(Type type, object? key)
+    public bool RemoveEntry(Type type, object? key = null)
+        => (type.IsGenericTypeDefinition ? _genericEntries : _concreteEntries)
+            .Remove(type, key ?? IInjectionProvider.NullKey.Instance);
+
+    public void ClearEntries()
     {
-        return InternalSearchItem(type, key, 0)?.Entry;
-
-        EntryItem? InternalSearchItem(Type currentType, object? currentKey, int currentRedirections)
-        {
-            while (true)
-            {
-                var currentItem = _groups.TryGetValue(currentType, out var group)
-                    ? currentKey is null ? group.UnkeyedItem : group.KeyedItems?.GetValueOrDefault(currentKey)
-                    : null;
-                if (currentItem is null)
-                {
-                    if (currentType is not { IsGenericType: true, IsGenericTypeDefinition: false })
-                        return null;
-                    currentType = currentType.EraseDeepestGenericArguments();
-                    continue;
-                }
-
-                if (currentItem.Entry is not InjectionRedirectionEntry redirection)
-                    return currentItem;
-
-                if (currentItem.CachedRedirection is { } cachedItem)
-                    return cachedItem;
-
-                if (currentRedirections >= MaxRedirectionDepth)
-                {
-                    if (Logger?.IsEnabled(LogLevel.Warning) is true)
-                        Logger.LogWarning(
-                            "Maximum redirection depth reached when searching for injection: " +
-                            "{Type} (Key: {Key}). Possible circular redirection detected.", 
-                            type, key);
-                    return null;
-                }
-
-                var redirectedItem = InternalSearchItem(
-                    redirection.TargetType, redirection.TargetKey, currentRedirections + 1);
-                currentItem.CachedRedirection = redirectedItem;
-                return redirectedItem;
-            }
-        }
+        _concreteEntries.Clear();
+        _genericEntries.Clear();
     }
 
-    private struct EntryGroup()
+    public async ValueTask DisposeAsync()
     {
-        public EntryItem? UnkeyedItem = null;
-
-        public Dictionary<object, EntryItem>? KeyedItems = null;
-    }
-
-    private class EntryItem(InjectionEntry entry)
-    {
-        public InjectionEntry Entry
-        {
-            get;
-            set
-            {
-                field = value;
-                // Invalidate cached redirection if the entry is changed.
-                CachedRedirection = null;
-            }
-        } = entry;
-
-        public bool IsValid { get; set; } = true;
-
-        public EntryItem? CachedRedirection
-        {
-            get
-            {
-                if (field is null)
-                    return null;
-                if (field.IsValid)
-                    return field;
-                // Invalidate cached redirection if it is removed.
-                field = null;
-                return null;
-            }
-            set;
-        }
+        await _root.DisposeAsync();
     }
 }

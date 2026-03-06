@@ -99,8 +99,9 @@ public partial class MemberInjector
             variableUnboxedTarget.AssignContent(argumentBoxedTarget.CastTo(type));
         }
 
-        var variableCurrentInjection = method.Variable<InjectionItem?>();
+        var variableCurrentInjection = method.Variable<object>();
         var variableCurrentRequester = method.Variable<InjectionTarget>();
+        var variableCurrentKey = method.Variable<object>();
 
         var labelFailed = method.DefineLabel();
 
@@ -156,34 +157,39 @@ public partial class MemberInjector
                 }
             }
 
-            variableCurrentRequester.AssignNew(
-                typeof(InjectionTarget).GetConstructor(
-                    [typeof(MemberInfo), typeof(object)])!,
-                [
-                    member switch
-                    {
-                        FieldInfo fieldRequester => method.Literal(fieldRequester),
-                        PropertyInfo propertyRequester => method.Literal(propertyRequester),
-                        _ => throw new Exception($"Unsupported requester type '{member.GetType()}'.")
-                    },
-                    argumentBoxedTarget
-                ]);
+            switch (member)
+            {
+                case FieldInfo field:
+                    variableCurrentRequester.AssignNew(
+                        () => new InjectionTarget(Any<FieldInfo>.Value, Any<object?>.Value),
+                        [method.Literal(field), argumentBoxedTarget]);
+                    break;
+                case PropertyInfo property:
+                    variableCurrentRequester.AssignNew(
+                        () => new InjectionTarget(Any<PropertyInfo>.Value, Any<object?>.Value),
+                        [method.Literal(property), argumentBoxedTarget]);
+                    break;
+                default:
+                    throw new Exception($"Unsupported injecting member type '{member.MemberType}'.");
+            }
+
+            variableCurrentKey.AssignContent(attribute?.Key is { } key
+                ? LiteralSymbolFactory.Create(method, key).ToObject()
+                : method.Null<object>());
 
             // Get the injection item and assign it to the local variable.
             argumentProvider
                 .Invoke(
-                    target => target.GetInjectionItem(
+                    target => target.GetInjection(
                         Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
                     [
                         method.Literal(requester.Type),
-                        attribute?.Key is { } key
-                            ? LiteralSymbolFactory.Create(method, key).ToObject()
-                            : method.Null<object>(),
+                        variableCurrentKey,
                         variableCurrentRequester
                     ])
                 .ToSymbol(variableCurrentInjection);
 
-            using (method.IfNot(variableCurrentInjection.HasValue()))
+            using (method.If(variableCurrentInjection.IsNull()))
             {
                 // Record the missing injection target.
                 using (method.If(variableMissingTargets.IsNotNull()))
@@ -194,7 +200,7 @@ public partial class MemberInjector
                 if (required)
                 {
                     variableSucceeded.AssignValue(method.Literal(false));
-                    
+
                     // Throw the exception if the injector should fail fast.
                     labelFailed.GotoIfTrue(variableShouldFailFast);
                 }
@@ -207,18 +213,12 @@ public partial class MemberInjector
             {
                 case FieldInfo field:
                     variableUnboxedTarget.Field(field).AssignValue(
-                        variableCurrentInjection
-                            .GetValue()
-                            .GetPropertyValue(target => target.Instance)
-                            .ConvertTo(field.FieldType));
+                        variableCurrentInjection.ConvertTo(field.FieldType));
                     break;
                 case PropertyInfo property:
                     variableUnboxedTarget.SetPropertyValue(
                         property,
-                        variableCurrentInjection
-                            .GetValue()
-                            .GetPropertyValue(target => target.Instance)
-                            .ConvertTo(property.PropertyType)
+                        variableCurrentInjection.ConvertTo(property.PropertyType)
                     );
                     break;
                 default:
@@ -229,9 +229,9 @@ public partial class MemberInjector
             {
                 variableInjectedTargets.Add(
                     method.New(
-                        () => new ValueTuple<InjectionTarget, InjectionItem>(
-                            Any<InjectionTarget>.Value, Any<InjectionItem>.Value),
-                        [variableCurrentRequester, variableCurrentInjection.GetValue()])
+                        () => new ValueTuple<InjectionTarget, object>(
+                            Any<InjectionTarget>.Value, Any<object>.Value),
+                        [variableCurrentRequester, variableCurrentInjection])
                 );
             }
 
@@ -244,11 +244,11 @@ public partial class MemberInjector
         {
             // Throw the exception.
             method.ThrowException(() => new InjectionFailureException(
-                    Any<Type>.Value, Any<IInjectionProvider>.Value,
-                    Any<InjectionTarget?>.Value, Any<string>.Value),
+                    Any<Type>.Value, Any<object>.Value, Any<IInjectionProvider>.Value,
+                    Any<InjectionTarget>.Value, Any<string>.Value),
                 [
-                    method.Literal(type), argumentProvider,
-                    variableCurrentRequester.ToNullable(), method.Null<string>()
+                    method.Literal(type), variableCurrentKey, argumentProvider,
+                    variableCurrentRequester, method.Null<string>()
                 ]);
         }
 

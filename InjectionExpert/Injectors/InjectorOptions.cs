@@ -16,27 +16,15 @@ public enum SelectionMode
     AttributedMembers = 1 << 1
 }
 
-
 public readonly record struct InjectorOptions
 {
-    private class ListResetPolicy<TElement> : PooledObjectPolicy<List<TElement>>
-    {
-        public override List<TElement> Create() => new();
-
-        public override bool Return(List<TElement> list)
-        {
-            list.Clear();
-            return true;
-        }
-    }
-
     /// <summary>
     /// Shared object pool for lists of found targets.
     /// </summary>
-    public static ObjectPool<List<(InjectionTarget, InjectionItem)>> PooledInjectedTargets { get; } =
-        new DefaultObjectPool<List<(InjectionTarget, InjectionItem)>>(
-            new ListResetPolicy<(InjectionTarget, InjectionItem)>());
-    
+    public static ObjectPool<List<(InjectionTarget, object)>> PooledInjectedTargets { get; } =
+        new DefaultObjectPool<List<(InjectionTarget, object)>>(
+            new ListResetPolicy<(InjectionTarget, object)>());
+
     /// <summary>
     /// Shared object pool for lists of missing targets.
     /// </summary>
@@ -79,10 +67,21 @@ public readonly record struct InjectorOptions
     /// <summary>
     /// If not null, the injector will record the injection targets that are found in this list.
     /// </summary>
-    public required ICollection<(InjectionTarget, InjectionItem)>? InjectedTargets { get; init; }
+    public required ICollection<(InjectionTarget Target, object Injection)>? InjectedTargets { get; init; }
 
     /// <summary>
     /// If not null, the injector will record the injection targets that are not found in this list.
     /// </summary>
     public required ICollection<InjectionTarget>? MissingTargets { get; init; }
+
+    private class ListResetPolicy<TElement> : PooledObjectPolicy<List<TElement>>
+    {
+        public override List<TElement> Create() => [];
+
+        public override bool Return(List<TElement> list)
+        {
+            list.Clear();
+            return true;
+        }
+    }
 }

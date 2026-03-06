@@ -23,26 +23,40 @@ internal class KeyedDictionary<TPrimaryKey, TSecondaryKey, TValue> :
     /// </exception>
     public TValue this[(TPrimaryKey Primary, TSecondaryKey Secondary) keys]
     {
-        get => TryGetValue(keys.Primary, keys.Secondary, out var value) 
-            ? value 
+        get => TryGetValue(keys.Primary, keys.Secondary, out var value)
+            ? value
             : throw new KeyNotFoundException();
         set => SetValue(keys.Primary, keys.Secondary, value);
     }
 
     /// <summary>
-    /// Adds a value to the set associated with the specified key.
+    /// Set a value to the set associated with the specified keys.
+    /// If the value with the same keys already exists, it will be replaced.
     /// </summary>
     /// <param name="primaryKey">Primary key for the value.</param>
     /// <param name="secondaryKey">Secondary key for the value.</param>
     /// <param name="value">Value to add.</param>
-    /// <returns>True if the value is added, false if the same value already exists.</returns>
     public void SetValue(TPrimaryKey primaryKey, TSecondaryKey secondaryKey, TValue value)
     {
         ref var dictionary = ref CollectionsMarshal.GetValueRefOrAddDefault(
             _dictionaries, primaryKey, out var exists)!;
-        if (!exists)
-            dictionary = new Dictionary<TSecondaryKey, TValue>();
+        dictionary ??= new Dictionary<TSecondaryKey, TValue>();
         dictionary[secondaryKey] = value;
+    }
+
+    /// <summary>
+    /// Try to add a value to the set associated with the specified key.
+    /// </summary>
+    /// <param name="primaryKey">Primary key for the value.</param>
+    /// <param name="secondaryKey">Secondary key for the value.</param>
+    /// <param name="value">Value to add.</param>
+    /// <returns>True if the value is added, false if the value with the same keys already exists.</returns>
+    public bool TrySetValue(TPrimaryKey primaryKey, TSecondaryKey secondaryKey, TValue value)
+    {
+        ref var dictionary = ref CollectionsMarshal.GetValueRefOrAddDefault(
+            _dictionaries, primaryKey, out var exists)!;
+        dictionary ??= new Dictionary<TSecondaryKey, TValue>();
+        return dictionary.TryAdd(secondaryKey, value);
     }
 
     /// <summary>

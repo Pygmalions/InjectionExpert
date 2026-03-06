@@ -2,72 +2,65 @@ using InjectionExpert.Entries;
 
 namespace InjectionExpert.Tests.Entries;
 
-[TestFixture, TestOf(typeof(InjectionFactoryEntry<>))]
+[TestFixture, TestOf(typeof(InjectionFactoryEntry<string>))]
 public class TestInjectionFactoryEntry
 {
     [Test]
-    public void TransientFactory_CreatesNewInstances()
+    public void IsAssignableTo_CheckingCompatibleAndIncompatibleTypes_ReturnsExpected()
     {
-        var provider = new InjectionContainer();
-        var entry = new InjectionFactoryEntry<object>(
-            InjectionLifespan.Transient,
-            (_, _, _, _) => new object());
+        var entry = new InjectionFactoryEntry<string>(InjectionLifespan.Transient,
+            (_, _, _, _) => "ok");
 
-        var a = entry.GetInjection(provider, typeof(object), null, default);
-        var b = entry.GetInjection(provider, typeof(object), null, default);
-        Assert.That(a, Is.Not.SameAs(b));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(entry.Lifespan, Is.EqualTo(InjectionLifespan.Transient));
+            Assert.That(entry.Factory, Is.Not.Null);
+            Assert.That(entry.IsAssignableTo(typeof(object)), Is.True);
+            Assert.That(entry.IsAssignableTo(typeof(int)), Is.False);
+        }
     }
 
     [Test]
-    public void SingletonFactory_CachesInstance_And_InvalidateCache()
+    public void GetInjection_InvokingFactory_PassesSameParameters()
     {
         var provider = new InjectionContainer();
-        var created = 0;
-        var entry = new InjectionFactoryEntry<string>(
-            InjectionLifespan.Singleton,
-            (_, _, _, _) =>
+        var requestedType = typeof(string);
+        var requestedKey = "k";
+        var requestedTarget = default(InjectionTarget);
+
+        IInjectionProvider? capturedProvider = null;
+        Type? capturedType = null;
+        object? capturedKey = null;
+        InjectionTarget capturedTarget = default;
+
+        var entry = new InjectionFactoryEntry<string>(InjectionLifespan.Singleton,
+            (inProvider, inType, inKey, inTarget) =>
             {
-                created++;
-                return Guid.NewGuid().ToString();
+                capturedProvider = inProvider;
+                capturedType = inType;
+                capturedKey = inKey;
+                capturedTarget = inTarget;
+                return "result";
             });
 
-        var a = (string)entry.GetInjection(provider, typeof(string), null, default);
-        var b = (string)entry.GetInjection(provider, typeof(string), null, default);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(a, Is.EqualTo(b));
-            Assert.That(created, Is.EqualTo(1));
-        }
+        var result = entry.GetInjection(provider, requestedType, requestedKey, requestedTarget);
 
-        var invalidated = entry.InvalidateCache();
-        var c = (string)entry.GetInjection(provider, typeof(string), null, default);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(invalidated, Is.True);
-            Assert.That(c, Is.Not.EqualTo(a));
-            Assert.That(created, Is.EqualTo(2));
+            Assert.That(result, Is.EqualTo("result"));
+            Assert.That(capturedProvider, Is.SameAs(provider));
+            Assert.That(capturedType, Is.EqualTo(requestedType));
+            Assert.That(capturedKey, Is.EqualTo(requestedKey));
+            Assert.That(capturedTarget, Is.EqualTo(requestedTarget));
         }
     }
 
     [Test]
-    public void UntypedFactory_InvokesStronglyTypedFactory()
+    public void ToString_Called_ReturnsFactoryPrefix()
     {
-        var provider = new InjectionContainer();
-        var expected = new object();
-        var entry = new InjectionFactoryEntry<object>(
-            InjectionLifespan.Transient,
-            (_, _, _, _) => expected);
+        var entry = new InjectionFactoryEntry<string>(InjectionLifespan.Singleton,
+            (_, _, _, _) => "x");
 
-        var obj = entry.UntypedFactory(provider, typeof(object), null, default);
-        Assert.That(obj, Is.SameAs(expected));
-    }
-
-    [Test]
-    public void ToString_ContainsFactoryText()
-    {
-        var entry = new InjectionFactoryEntry<object>(
-            InjectionLifespan.Transient,
-            (_, _, _, _) => new object());
-        Assert.That(entry.ToString(), Does.Contain("Factory"));
+        Assert.That(entry.ToString(), Does.StartWith("(Factory: "));
     }
 }

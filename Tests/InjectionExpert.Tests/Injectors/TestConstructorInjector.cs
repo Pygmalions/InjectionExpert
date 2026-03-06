@@ -1,14 +1,14 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using InjectionExpert.Injectors;
 using JetBrains.Annotations;
 
-namespace InjectionExpert.Tests;
+namespace InjectionExpert.Tests.Injectors;
 
 [TestFixture, TestOf(typeof(ConstructorInjector))]
 public class TestConstructorInjector
 {
     [Test]
-    public void Create_Injector_NotNull()
+    public void For_TypeHasInjector_ReturnsInstance()
     {
         var injector = ConstructorInjector.For(typeof(StubOneConstructorInjectionClass));
         Assert.That(injector, Is.Not.Null);
@@ -22,7 +22,7 @@ public class TestConstructorInjector
     }
     
     [Test]
-    public void Create_Class_OneConstructor()
+    public void TryInject_ClassHasSingleSatisfiableConstructor_ReturnsInitialized()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -64,7 +64,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Create_Class_TwoConstructor()
+    public void TryInject_ClassHasMultipleConstructors_SelectsSatisfiableConstructor()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -88,7 +88,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Create_Class_Unsatisfied_Null()
+    public void TryInject_ClassDependenciesUnsatisfied_ReturnsFalseAndNull()
     {
         var container = new InjectionContainer()
             .AddSingleton(0.5);
@@ -113,7 +113,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Create_Struct_OneConstructor()
+    public void TryInject_StructHasSingleSatisfiableConstructor_ReturnsInitialized()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -148,7 +148,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Create_Struct_TwoConstructor()
+    public void TryInject_StructHasMultipleConstructors_SelectsSatisfiableConstructor()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -169,7 +169,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Create_Struct_Unsatisfied_Null()
+    public void TryInject_StructDependenciesUnsatisfied_ReturnsFalseAndNull()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -197,7 +197,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Injector_WithDefaultArguments()
+    public void TryInject_ConstructorHasDefaultArguments_UsesDefaults()
     {
         var container = new InjectionContainer()
             .AddSingleton(1);
@@ -216,7 +216,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Injector_WithDefaultArguments_ShouldFail()
+    public void TryInject_RequiredDependenciesMissingDespiteDefaults_ReturnsFalse()
     {
         var container = new InjectionContainer();
         var succeeded = ConstructorInjector
@@ -226,7 +226,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Injector_OverwriteDefaultArguments()
+    public void TryInject_DependencyProvidedForDefaultArgument_OverridesDefault()
     {
         var container = new InjectionContainer()
             .AddSingleton(1)
@@ -254,7 +254,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Injector_DefaultDecimalArgument()
+    public void TryInject_ConstructorHasDecimalDefaultArgument_UsesDecimalDefault()
     {
         var container = new InjectionContainer()
             .AddSingleton(1);
@@ -276,7 +276,7 @@ public class TestConstructorInjector
     }
 
     [Test]
-    public void Injector_WithKeys()
+    public void TryInject_ConstructorParametersHaveKeys_ResolvesByKeys()
     {
         var container = new InjectionContainer()
             .AddSingleton("Value1", 1)

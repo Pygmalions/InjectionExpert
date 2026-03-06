@@ -5,6 +5,7 @@ using EmitToolbox.Extensions;
 using EmitToolbox.Symbols;
 using EmitToolbox.Symbols.Literals;
 using EmitToolbox.Utilities;
+using OneOf;
 
 namespace InjectionExpert.Injectors;
 
@@ -60,9 +61,9 @@ public partial class ConstructorInjector
             .OrderBy(constructor => constructor.GetParameters().Length)
             .ToList();
 
-        var variablesInjectionItem = Enumerable
+        var variablesInjection = Enumerable
             .Range(0, constructors[^1].GetParameters().Length)
-            .Select(_ => dynamicMethod.Variable<InjectionItem?>())
+            .Select(_ => dynamicMethod.Variable<object>())
             .ToList();
 
         VariableSymbol variableUnboxedTarget;
@@ -84,7 +85,7 @@ public partial class ConstructorInjector
             ArgumentBoxedTarget = argumentBoxedTarget,
             ArgumentProvider = argumentProvider,
             VariableUnboxedTarget = variableUnboxedTarget,
-            VariablesInjectionItem = variablesInjectionItem,
+            VariablesInjection = variablesInjection,
             VariableInjectionRequester = dynamicMethod.Variable<InjectionTarget>(),
             VariablesParameterInfo = dynamicMethod.Variable<ParameterInfo[]>(),
         };
@@ -107,7 +108,7 @@ public partial class ConstructorInjector
 
         public required DynamicMethod<Action<ISymbol<bool>>> Method { get; init; }
 
-        public required List<VariableSymbol<InjectionItem?>> VariablesInjectionItem { get; init; }
+        public required List<VariableSymbol<object>> VariablesInjection { get; init; }
 
         public required ArgumentSymbol<object> ArgumentBoxedTarget { get; init; }
 
@@ -116,7 +117,7 @@ public partial class ConstructorInjector
         public required VariableSymbol VariableUnboxedTarget { get; init; }
 
         public required VariableSymbol<InjectionTarget> VariableInjectionRequester { get; init; }
-
+        
         public required VariableSymbol<ParameterInfo[]> VariablesParameterInfo { get; init; }
     }
 
@@ -138,25 +139,26 @@ public partial class ConstructorInjector
             ISymbol<object?> symbolKey = attribute?.Key is null
                 ? method.Null<object>()
                 : LiteralSymbolFactory.Create(method, attribute.Key).ToObject();
-
+            
             // Load injection target.
             context.VariableInjectionRequester.AssignNew(
                 () => new InjectionTarget(Any<ParameterInfo>.Value, Any<object>.Value),
                 [
-                    context.VariablesParameterInfo.ElementAt(index),
-                    context.ArgumentBoxedTarget
+                    context.VariablesParameterInfo
+                        .ElementAt(index),
+                    context.ArgumentBoxedTarget,
                 ]);
 
-            var variableInjectionItem = context.VariablesInjectionItem[index];
+            var variableInjection = context.VariablesInjection[index];
 
             context.ArgumentProvider
                 .Invoke(
-                    target => target.GetInjectionItem(
+                    target => target.GetInjection(
                         Any<Type>.Value, Any<object?>.Value, Any<InjectionTarget>.Value),
                     [method.Literal(parameter.ParameterType), symbolKey, context.VariableInjectionRequester])
-                .ToSymbol(variableInjectionItem);
+                .ToSymbol(variableInjection);
 
-            using (method.If(variableInjectionItem.HasValue().Not()))
+            using (method.If(variableInjection.IsNull()))
             {
                 if (!parameter.HasDefaultValue)
                 {
@@ -164,24 +166,13 @@ public partial class ConstructorInjector
                 }
                 else
                 {
-                    var variableItem = method.New(
-                        () => new InjectionItem(Any<object>.Value, Any<InjectionLifespan>.Value),
-                        [
-                            method.Null<object>(),
-                            method.Literal(InjectionLifespan.Transient)
-                        ]);
-
-                    var variableDefaultParameter = 
-                        LiteralSymbolFactory.Create(method, parameter.DefaultValue)
-                            .ToObject()
-                            .ToSymbol();
-                    
                     if (parameter.DefaultValue != null)
-                        variableItem.SetPropertyValue(
-                            target => target.Instance,
-                            variableDefaultParameter);
-
-                    variableItem.ToNullable(variableInjectionItem);
+                    {
+                        variableInjection.AssignContent(
+                            LiteralSymbolFactory.Create(method, parameter.DefaultValue)
+                                .ToObject()
+                                .ToSymbol());
+                    }
                 }
             }
         }
@@ -189,10 +180,7 @@ public partial class ConstructorInjector
         context.VariableUnboxedTarget.AssignNew(
             constructor,
             constructor.GetParameters().Index().Select(pair =>
-                context.VariablesInjectionItem[pair.Index]
-                    .GetValue()
-                    .GetPropertyValue(target => target.Instance)
-                    .ConvertTo(pair.Item.ParameterType)),
+                context.VariablesInjection[pair.Index].ConvertTo(pair.Item.ParameterType)),
             inplace: true);
 
         method.Return(method.Literal(true));

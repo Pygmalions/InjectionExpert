@@ -1,172 +1,141 @@
-using InjectionExpert.Entries;
-using JetBrains.Annotations;
+using Moq;
 
 namespace InjectionExpert.Tests;
 
 [TestFixture, TestOf(typeof(InjectionContainer))]
 public class TestInjectionContainer
 {
-    private class StubEmptyClass
-    {
-    }
-
     [Test]
-    public void AddInjection_And_GetInjection()
+    public void AddEntry_UsingNullAndKeyedEntries_SupportsAddGetHasRemoveAndClear()
     {
         var container = new InjectionContainer();
-        container.AddInjection(typeof(int), null, new InjectionConstantEntry(123));
-        var value = (int?)container.GetInjection(typeof(int));
-        Assert.That(value, Is.EqualTo(123));
-    }
+        var unkeyedEntry = new Mock<InjectionEntry>();
+        unkeyedEntry.Setup(target => target.IsAssignableTo(typeof(string))).Returns(true);
+        var keyedEntry = new Mock<InjectionEntry>();
+        keyedEntry.Setup(target => target.IsAssignableTo(typeof(int))).Returns(true);
 
-    [Test]
-    public void AddTransient_Type_CreatesNewInstances()
-    {
-        var container = new InjectionContainer();
-        container.AddInjection(InjectionLifespan.Transient, 
-            typeof(StubEmptyClass), 
-            typeof(StubEmptyClass));
-        var a = container.GetInjection(typeof(StubEmptyClass));
-        var b = container.GetInjection(typeof(StubEmptyClass));
-        Assert.That(a, Is.Not.SameAs(b));
-    }
+        container.AddEntry(typeof(string), null, unkeyedEntry.Object);
+        container.AddEntry(typeof(int), "answer", keyedEntry.Object);
 
-    [Test]
-    public void AddFactory_Singleton_CachesInstances()
-    {
-        var container = new InjectionContainer();
-        int created = 0;
-        container.AddInjection(InjectionLifespan.Singleton, typeof(string),
-            (_, _, _, _) =>
-            {
-                created++;
-                return Guid.NewGuid().ToString();
-            });
-        var a = container.RequireInjection<string>();
-        var b = container.RequireInjection<string>();
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(a, Is.EqualTo(b));
-            Assert.That(created, Is.EqualTo(1));
+            Assert.That(container.HasEntry(typeof(string)), Is.True);
+            Assert.That(container.GetEntry(typeof(string)), Is.SameAs(unkeyedEntry.Object));
+            
+            Assert.That(container.HasEntry(typeof(int), "answer"), Is.True);
+            Assert.That(container.GetEntry(typeof(int), "answer"), Is.SameAs(keyedEntry.Object));
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(container.RemoveEntry(typeof(int), "answer"), Is.True);
+            Assert.That(container.HasEntry(typeof(int), "answer"), Is.False);
+        }
+
+        container.ClearEntries();
+        Assert.That(container.HasEntry(typeof(string)), Is.False);
+    }
+
+    [Test]
+    public void AddEntry_EntryNotAssignable_ThrowsArgumentException()
+    {
+        var container = new InjectionContainer();
+        var incompatibleEntry = new Mock<InjectionEntry>();
+        incompatibleEntry.Setup(target => target.IsAssignableTo(typeof(int))).Returns(false);
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            container.AddEntry(typeof(int), null, incompatibleEntry.Object));
+
+        Assert.That(exception!.ParamName, Is.EqualTo("entry"));
+    }
+
+    [Test]
+    public void TryAddEntry_EntryAlreadyExists_ReturnsFalse()
+    {
+        var container = new InjectionContainer();
+
+        var first = new Mock<InjectionEntry>();
+        var second = new Mock<InjectionEntry>();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(container.TryAddEntry(typeof(string), null, first.Object), Is.True);
+            Assert.That(container.TryAddEntry(typeof(string), null, second.Object), Is.False);
+            Assert.That(container.GetEntry(typeof(string)), Is.SameAs(first.Object));
         }
     }
 
     [Test]
-    public void Redirection_Redirects()
+    public void Entries_EntryIsUnkeyed_ReturnsTupleWithNullKey()
     {
         var container = new InjectionContainer();
-        container.AddSingleton("text");
-        container.AddRedirection(typeof(object), null, typeof(string), null);
-        var instance = container.RequireInjection<object>();
-        Assert.That(instance, Is.EqualTo("text"));
-    }
+        var entry = new Mock<InjectionEntry>();
+        entry.Setup(target => target.IsAssignableTo(typeof(string))).Returns(true);
+        container.AddEntry(typeof(string), null, entry.Object);
 
-    [Test]
-    public void TryAdd_ExistingEntry_Fails()
-    {
-        var container = new InjectionContainer();
-        var added = container.TryAddSingleton(typeof(int), 1);
-        var addedAgain = container.TryAddSingleton(typeof(int), 2);
+        var tuple = container.Entries.Single(target => target.Type == typeof(string));
+        
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(added, Is.True);
-            Assert.That(addedAgain, Is.False);
-        }
-
-        var removed = container.RemoveInjection(typeof(int), null);
-        Assert.That(removed, Is.True);
-        var missing = container.GetInjection(typeof(int));
-        Assert.That(missing, Is.Null);
-    }
-
-    [Test]
-    public void RemoveInjection_RemovesEntry()
-    {
-        var container = new InjectionContainer();
-        container.TryAddSingleton(typeof(int), 1);
-        var removed = container.RemoveInjection(typeof(int), null);
-        Assert.That(removed, Is.True);
-        var missing = container.GetInjection(typeof(int));
-        Assert.That(missing, Is.Null);
-    }
-
-    [Test]
-    public void InvalidateCache_RecreatesSingletons()
-    {
-        var container = new InjectionContainer();
-        var created = 0;
-        container.AddInjection(InjectionLifespan.Singleton, typeof(Guid), (_, _, _, _) =>
-        {
-            created++;
-            return Guid.NewGuid();
-        });
-        _ = container.RequireInjection<Guid>();
-        container.InvalidateCache();
-        _ = container.RequireInjection<Guid>();
-        Assert.That(created, Is.EqualTo(2));
-    }
-
-    [Test]
-    public void Clear_RemovesAllEntries()
-    {
-        var container = new InjectionContainer();
-        container.AddSingleton(1);
-        container.AddSingleton("ok");
-        container.Clear();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(container.GetInjection(typeof(int)), Is.Null);
-            Assert.That(container.GetInjection<string>(), Is.Null);
+            Assert.That(tuple.Key, Is.Null);
+            Assert.That(tuple.Entry, Is.SameAs(entry.Object));
         }
     }
 
     [Test]
-    public void Enumeration_ListsAllEntries()
+    public void AddEntry_EntryIsOpenGeneric_ResolvesClosedGenericRequest()
     {
         var container = new InjectionContainer();
-        container.AddSingleton(1);
-        container.AddSingleton("ok");
-        container.AddInjection(InjectionLifespan.Transient, typeof(object),
-            typeof(StubEmptyClass), key: "k");
-        var list = container.ToList();
-        // At least 3 items (int, string, object with a key)
-        Assert.That(list.Count, Is.GreaterThanOrEqualTo(3));
-        Assert.That(list.Any(i => i.Type == typeof(int) && i.Key is null));
-        Assert.That(list.Any(i => i.Type == typeof(object) && Equals(i.Key, "k")));
+        var entry = new Mock<InjectionEntry>();
+        entry.Setup(target => target.IsAssignableTo(typeof(IEnumerable<>))).Returns(true);
+
+        container.AddEntry(typeof(IEnumerable<>), null, entry.Object);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(container.HasEntry(typeof(IEnumerable<int>)), Is.True);
+            Assert.That(container.GetEntry(typeof(IEnumerable<int>)), Is.SameAs(entry.Object));
+            Assert.That(container.RemoveEntry(typeof(IEnumerable<>)), Is.True);
+            Assert.That(container.HasEntry(typeof(IEnumerable<int>)), Is.False);
+        }
     }
 
-    [UsedImplicitly]
-    private interface ISampleGenericInterface<TType>
+    [Test]
+    public void Entries_ContainerHasOpenGenericEntries_IncludesEntriesAndClears()
+    {
+        var container = new InjectionContainer();
+        var entry = new Mock<InjectionEntry>();
+        entry.Setup(target => target.IsAssignableTo(typeof(IList<>))).Returns(true);
+
+        container.AddEntry(typeof(IList<>), null, entry.Object);
+
+        var tuple = container.Entries.Single(target => target.Type == typeof(IList<>));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(tuple.Key, Is.Null);
+            Assert.That(tuple.Entry, Is.SameAs(entry.Object));
+        }
+
+        container.ClearEntries();
+        Assert.That(container.HasEntry(typeof(IList<string>)), Is.False);
+    }
+
+    public class TestGenericBase<T1, T2>
     {
     }
 
-    [UsedImplicitly]
-    private class SampleGenericClass<TType> : ISampleGenericInterface<TType>
+    public class TestGenericType<TA, TB> : TestGenericBase<TB, TA>
     {
     }
     
     [Test]
-    public void GetInjectionItem_Generic_ResolvesGenericDefinition()
+    public void GetInjection_GenericParameterOrderDiffers_ResolvesCorrectOrder()
     {
-        var container = new InjectionContainer()
-            .AddSingleton(typeof(ISampleGenericInterface<>), typeof(SampleGenericClass<>));
+        var container = new InjectionContainer();
+        container.AddSingleton(typeof(TestGenericBase<,>), typeof(TestGenericType<,>));
 
-        var injection = container.GetInjection(typeof(ISampleGenericInterface<int>));
+        var instance = container.GetInjection(typeof(TestGenericBase<int, bool>));
         
-        Assert.That(injection, Is.Not.Null);
-        Assert.That(injection, Is.TypeOf<SampleGenericClass<int>>());
-    }
-    
-    [Test]
-    public void GetInjectionItem_GenericOfGeneric_ResolvesGenericDefinition()
-    {
-        var container = new InjectionContainer()
-            .AddSingleton(typeof(ISampleGenericInterface<>).MakeGenericType(typeof(SampleGenericClass<>)), 
-                typeof(SampleGenericClass<>));
-
-        var injection = container.GetInjection(typeof(ISampleGenericInterface<SampleGenericClass<int>>));
-        
-        Assert.That(injection, Is.Not.Null);
-        Assert.That(injection, Is.TypeOf<SampleGenericClass<SampleGenericClass<int>>>());
+        Assert.That(instance, Is.TypeOf<TestGenericType<bool, int>>());
     }
 }

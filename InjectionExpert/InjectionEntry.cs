@@ -1,28 +1,30 @@
+using System.Diagnostics.Contracts;
+
 namespace InjectionExpert;
 
-public abstract class InjectionEntry(InjectionLifespan lifespan)
+public abstract class InjectionEntry
 {
     /// <summary>
-    /// Lifespan of this entry.
+    /// Lifespan of the injection.
     /// </summary>
-    public InjectionLifespan Lifespan { get; } = lifespan;
-
+    public abstract InjectionLifespan Lifespan { get; }
+    
     /// <summary>
-    /// Get the injection from this entry.
+    /// Determine whether the injection of this entry is assignable to the specified type.
     /// </summary>
-    /// <param name="provider"></param>
-    /// <param name="type">Actually requested type.</param>
-    /// <param name="key">Actually requested key.</param>
-    /// <param name="target">Target that requests the injection.</param>
-    /// <returns>Injection value.</returns>
-    public abstract object GetInjection(IInjectionProvider provider, Type type, object? key, InjectionTarget target);
-
-    /// <summary>
-    /// Invalidate the cache of this entry.
-    /// </summary>
+    /// <param name="type">Category type to check.</param>
     /// <returns>
-    /// True if the cache is removed, or false if this entry currently does not have a cache.
-    /// This return value can help identify whether the state of the container has truly changed or not.
+    /// True if the injection of this entry is assignable to the specified category type; false otherwise.
     /// </returns>
-    public virtual bool InvalidateCache() => false;
+    public abstract bool IsAssignableTo(Type type);
+
+    /// <summary>
+    /// Retrieve an injection instance based on the specified type, key, and target.
+    /// </summary>
+    /// <param name="provider">The injection scope provider used to resolve dependencies.</param>
+    /// <param name="type">The type of the object to be injected.</param>
+    /// <param name="key">An optional key to distinguish between multiple registrations of the same type.</param>
+    /// <param name="target">The target location where the injection will be applied.</param>
+    /// <returns>An object instance that matches the requested injection criteria.</returns>
+    public abstract object GetInjection(IInjectionProvider provider, Type type, object? key, InjectionTarget target);
 }
