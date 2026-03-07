@@ -12,7 +12,7 @@ public static class InjectionContainerExtensions
         /// <typeparam name="TInjection">Type that the entry is associated with.</typeparam>
         /// <param name="key">Optional key of the entry.</param>
         /// <returns>True if the entry is removed, or false if the entry is not found.</returns>
-        public bool RemoveInjection<TInjection>(object? key = null)
+        public bool RemoveEntry<TInjection>(object? key = null)
             => container.RemoveEntry(typeof(TInjection), key);
     }
     
@@ -270,7 +270,7 @@ public static class InjectionContainerExtensions
         /// <param name="type">Type that the entry is associated with.</param>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public IInjectionContainer AddInjection(InjectionLifespan lifespan,
+        public IInjectionContainer AddFactoryEntry(InjectionLifespan lifespan,
             Type type, InjectionFactoryEntry.FactoryDelegate<object> factory, object? key = null)
         {
             container.AddEntry(type, key,
@@ -285,7 +285,7 @@ public static class InjectionContainerExtensions
         /// <param name="lifespan">Lifespan of this injection.</param>
         /// <param name="factory">Factory delegate that creates instances for requests.</param>
         /// <param name="key">Optional key of the entry.</param>
-        public IInjectionContainer AddInjection<TInjection>(InjectionLifespan lifespan,
+        public IInjectionContainer AddFactoryEntry<TInjection>(InjectionLifespan lifespan,
             InjectionFactoryEntry.FactoryDelegate<TInjection> factory, object? key = null)
         {
             container.AddEntry(typeof(TInjection), key,
@@ -301,7 +301,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddTransient(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Transient, type, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Transient, type, factory, key);
 
         /// <summary>
         /// Add the specified factory as a transient injection to this container.
@@ -311,7 +311,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddTransient<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Transient, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Transient, factory, key);
 
         /// <summary>
         /// Add the specified factory as a scoped injection to this container.
@@ -321,7 +321,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddScoped(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Scoped, type, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Scoped, type, factory, key);
 
         /// <summary>
         /// Add the specified factory as a scoped injection to this container.
@@ -331,7 +331,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddScoped<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Scoped, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Scoped, factory, key);
 
         /// <summary>
         /// Add the specified factory as a singleton injection to this container.
@@ -341,7 +341,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddSingleton(Type type, InjectionFactoryEntry.FactoryDelegate<object> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Singleton, type, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Singleton, type, factory, key);
 
         /// <summary>
         /// Add the specified factory as a singleton injection to this container.
@@ -351,7 +351,7 @@ public static class InjectionContainerExtensions
         /// <param name="key">Optional key of the entry.</param>
         public IInjectionContainer AddSingleton<TInjection>(InjectionFactoryEntry.FactoryDelegate<TInjection> factory,
             object? key = null)
-            => container.AddInjection(InjectionLifespan.Singleton, factory, key);
+            => container.AddFactoryEntry(InjectionLifespan.Singleton, factory, key);
 
         /// <summary>
         /// Add the specified factory as a transient injection to this container.

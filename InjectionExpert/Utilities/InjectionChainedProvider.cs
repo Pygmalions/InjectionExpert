@@ -11,6 +11,9 @@ namespace InjectionExpert.Utilities;
 /// </param>
 public class InjectionChainedProvider(IEnumerable<IInjectionProvider?> providers) : IInjectionProvider
 {
+    public IEnumerable<IInjectionProvider.InjectionResolver> Resolvers
+        => providers.OfType<IInjectionProvider>().SelectMany(provider => provider.Resolvers);
+
     public InjectionEntry? GetEntry(Type type, object? key = null)
         => providers.Select(provider => provider?.GetEntry(type, key)).FirstOrDefault(entry => entry != null);
 
@@ -27,18 +30,15 @@ public class InjectionChainedProvider(IEnumerable<IInjectionProvider?> providers
 
 public static class InjectionChainedProviderExtensions
 {
-    extension(IInjectionProvider)
-    {
-        /// <summary>
-        /// Create a new injection provider from a sequence of providers.
-        /// The providers will be queried in order until one of them returns a non-null injection.
-        /// </summary>
-        /// <param name="providers">
-        /// Providers to concatenate in sequence;
-        /// This sequence will be enumerated every time an injection is requested.
-        /// </param>
-        /// <returns>Injection provider that queries the specified sequence of providers.</returns>
-        public static InjectionChainedProvider FromMultiple(params IEnumerable<IInjectionProvider?> providers)
-            => new(providers);
-    }
+    /// <summary>
+    /// Create a new injection provider from a sequence of providers.
+    /// The providers will be queried in order until one of them returns a non-null injection.
+    /// </summary>
+    /// <param name="providers">
+    /// Providers to concatenate in sequence;
+    /// This sequence will be enumerated every time an injection is requested.
+    /// </param>
+    /// <returns>Injection provider that queries the specified sequence of providers.</returns>
+    public static InjectionChainedProvider FromMultiple(params IEnumerable<IInjectionProvider?> providers)
+        => new(providers);
 }

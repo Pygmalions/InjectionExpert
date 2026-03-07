@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 namespace InjectionExpert.Utilities.Internal;
 
@@ -37,11 +38,8 @@ internal class MultiDictionary<TKey, TValue> : IEnumerable<KeyValuePair<TKey, IR
     /// <returns>True if the value is added, false if the same value already exists.</returns>
     public bool Add(TKey key, TValue value)
     {
-        if (_dictionary.TryGetValue(key, out var set))
-            return set.Add(value);
-        set = [];
-        _dictionary[key] = set;
-        return set.Add(value);
+        ref var set = ref CollectionsMarshal.GetValueRefOrAddDefault(_dictionary, key, out _);
+        return (set ??= []).Add(value);
     }
 
     /// <summary>

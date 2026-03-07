@@ -96,11 +96,10 @@ internal static partial class TypeExtensions
         {
             for (var current = self; current != null; current = current.BaseType)
             {
-                if (current.IsGenericType && current.GetGenericTypeDefinition() == definitionType)
-                {
-                    matchedBaseType = current;
-                    return true;
-                }
+                if (!current.IsGenericType || current.GetGenericTypeDefinition() != definitionType) 
+                    continue;
+                matchedBaseType = current;
+                return true;
             }
 
             matchedBaseType = null;

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using InjectionExpert.Utilities;
 using InjectionExpert.Utilities.Internal;
 

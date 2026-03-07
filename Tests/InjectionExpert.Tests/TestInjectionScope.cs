@@ -11,11 +11,89 @@ public class TestInjectionScope
         var provider = new Mock<IInjectionProvider>();
         provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
             .Returns((InjectionEntry?)null);
+        provider.SetupGet(target => target.Resolvers)
+            .Returns(() => []);
         var scope = new InjectionScope(provider.Object);
 
         var injection = scope.GetInjection(typeof(string));
 
         Assert.That(injection, Is.Null);
+    }
+
+    [Test]
+    public void GetInjection_EntryNotFoundButResolverMatches_ReturnsResolvedInstance()
+    {
+        var provider = new Mock<IInjectionProvider>();
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns((InjectionEntry?)null);
+
+        var resolverCalled = false;
+        IInjectionProvider.InjectionResolver resolver = (p, t, k, target) =>
+        {
+            resolverCalled = true;
+            return ("resolved-value", false);
+        };
+        provider.SetupGet(target => target.Resolvers)
+            .Returns(() => [resolver]);
+
+        var scope = new InjectionScope(provider.Object);
+
+        var injection = scope.GetInjection(typeof(string));
+
+        Assert.That(injection, Is.EqualTo("resolved-value"));
+        Assert.That(resolverCalled, Is.True);
+    }
+
+    [Test]
+    public void GetInjection_ResolverReturnsWithCache_CachesInstance()
+    {
+        var provider = new Mock<IInjectionProvider>();
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns((InjectionEntry?)null);
+
+        var resolverCount = 0;
+        IInjectionProvider.InjectionResolver resolver = (p, t, k, target) =>
+        {
+            resolverCount++;
+            return ("cached-value", true);
+        };
+        provider.SetupGet(target => target.Resolvers)
+            .Returns(() => [resolver]);
+
+        var scope = new InjectionScope(provider.Object);
+
+        var first = scope.GetInjection(typeof(string));
+        var second = scope.GetInjection(typeof(string));
+
+        Assert.That(first, Is.EqualTo("cached-value"));
+        Assert.That(second, Is.EqualTo("cached-value"));
+        Assert.That(resolverCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void GetInjection_ResolverReturnsWithoutCache_DoesNotCacheInstance()
+    {
+        var provider = new Mock<IInjectionProvider>();
+        provider.Setup(target => target.GetEntry(typeof(string), It.IsAny<object?>()))
+            .Returns((InjectionEntry?)null);
+
+        var resolverCount = 0;
+        IInjectionProvider.InjectionResolver resolver = (p, t, k, target) =>
+        {
+            resolverCount++;
+            return ($"value-{resolverCount}", false);
+        };
+        provider.SetupGet(target => target.Resolvers)
+            .Returns(() => [resolver]);
+
+        var scope = new InjectionScope(provider.Object);
+
+        var first = scope.GetInjection(typeof(string));
+        var second = scope.GetInjection(typeof(string));
+
+        Assert.That(first, Is.EqualTo("value-1"));
+        Assert.That(second, Is.EqualTo("value-2"));
+        Assert.That(resolverCount, Is.EqualTo(2));
     }
 
     [Test]
@@ -94,7 +172,7 @@ public class TestInjectionScope
 
         await scope.DisposeAsync();
 
-        Assert.That(disposeLog, Is.EqualTo(new[] { "async", "sync" }));
+        Assert.That(disposeLog, Is.EqualTo(["async", "sync"]));
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await scope.DisposeAsync());
     }
 

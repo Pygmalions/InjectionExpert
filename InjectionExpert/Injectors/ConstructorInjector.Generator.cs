@@ -5,7 +5,6 @@ using EmitToolbox.Extensions;
 using EmitToolbox.Symbols;
 using EmitToolbox.Symbols.Literals;
 using EmitToolbox.Utilities;
-using OneOf;
 
 namespace InjectionExpert.Injectors;
 

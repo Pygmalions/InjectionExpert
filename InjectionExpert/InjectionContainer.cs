@@ -7,12 +7,16 @@ public class InjectionContainer : IInjectionContainer, IAsyncDisposable
     private readonly KeyedDictionary<Type, object, InjectionEntry> _concreteEntries = new();
 
     private readonly KeyedDictionary<Type, object, InjectionEntry> _genericEntries = new();
-    
+
     /// <summary>
     /// Root scope of the injection container.
     /// </summary>
     private readonly InjectionScope _root;
 
+    private readonly HashSet<IInjectionProvider.InjectionResolver> _resolvers = [];
+    
+    public IEnumerable<IInjectionProvider.InjectionResolver> Resolvers => _resolvers;
+    
     public InjectionContainer()
     {
         _root = new InjectionScope(this);
@@ -33,7 +37,7 @@ public class InjectionContainer : IInjectionContainer, IAsyncDisposable
     {
         key ??= IInjectionProvider.NullKey.Instance;
         return !type.IsGenericTypeDefinition && _concreteEntries.ContainsKey(type, key) ||
-                type.IsGenericType && _genericEntries.ContainsKey(type.GetGenericTypeDefinition(), key);
+               type.IsGenericType && _genericEntries.ContainsKey(type.GetGenericTypeDefinition(), key);
     }
 
     public object? GetInjection(Type type, object? key = null, InjectionTarget target = default)
@@ -42,8 +46,8 @@ public class InjectionContainer : IInjectionContainer, IAsyncDisposable
     public IEnumerable<(Type Type, object? Key, InjectionEntry Entry)> Entries
         => _concreteEntries.Concat(_genericEntries)
             .Select(tuple => (tuple.PrimaryKey,
-            tuple.SecondaryKey is IInjectionProvider.NullKey ? null : tuple.SecondaryKey,
-            tuple.Value));
+                tuple.SecondaryKey is IInjectionProvider.NullKey ? null : tuple.SecondaryKey,
+                tuple.Value));
 
     public void AddEntry(Type type, object? key, InjectionEntry entry)
     {
@@ -67,6 +71,15 @@ public class InjectionContainer : IInjectionContainer, IAsyncDisposable
         _concreteEntries.Clear();
         _genericEntries.Clear();
     }
+
+    public void AddResolver(IInjectionProvider.InjectionResolver resolver)
+        => _resolvers.Add(resolver);
+
+    public void RemoveResolver(IInjectionProvider.InjectionResolver resolver)
+        => _resolvers.Remove(resolver);
+
+    public void ClearResolvers()
+        => _resolvers.Clear();
 
     public async ValueTask DisposeAsync()
     {

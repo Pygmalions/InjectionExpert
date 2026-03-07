@@ -23,7 +23,7 @@ public class InjectionScope : IInjectionScope
     private KeyedDictionary<Type, object, object>? _scopedInjections;
 
     private KeyedDictionary<Type, object, object>? _singletonInjections;
-
+    
     public InjectionScope(IInjectionProvider provider) : this(provider, null)
     {
     }
@@ -34,6 +34,8 @@ public class InjectionScope : IInjectionScope
         _upstream = upstream;
         _root = upstream?._root ?? this;
     }
+
+    public IEnumerable<IInjectionProvider.InjectionResolver> Resolvers => _provider.Resolvers;
 
     public IInjectionScope NewScope()
     {
@@ -74,7 +76,15 @@ public class InjectionScope : IInjectionScope
             return cached;
 
         if (_provider.GetEntry(type, key) is not { } entry)
-            return null;
+        {
+            if (_provider.Resolvers
+                    .Select(resolver => resolver(this, type, key, target))
+                    .FirstOrDefault(pair => pair.HasValue) is not { } resolved) 
+                return null;
+            if (resolved.ShouldCache)
+                (_scopedInjections ??= []).SetValue(type, key, resolved.Instance);
+            return resolved.Instance;
+        }
 
         var request = new InjectionRequest(type, key, target);
 

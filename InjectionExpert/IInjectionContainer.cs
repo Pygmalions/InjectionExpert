@@ -7,7 +7,7 @@ namespace InjectionExpert;
 public interface IInjectionContainer : IInjectionProvider
 {
     /// <summary>
-    /// Gets a collection of all registered injection entries in this container.
+    /// Injection entries in this container.
     /// Each entry contains the associated type, optional key, and the injection configuration.
     /// </summary>
     IEnumerable<(Type Type, object? Key, InjectionEntry Entry)> Entries { get; }
@@ -47,4 +47,21 @@ public interface IInjectionContainer : IInjectionProvider
     /// Clear all injection entries from this container.
     /// </summary>
     void ClearEntries();
+
+    /// <summary>
+    /// Add an injection resolver to the container.
+    /// </summary>
+    /// <param name="resolver">Resolver to add.</param>
+    void AddResolver(InjectionResolver resolver);
+    
+    /// <summary>
+    /// Remove an injection resolver from the container.
+    /// </summary>
+    /// <param name="resolver">Resolver to remove.</param>
+    void RemoveResolver(InjectionResolver resolver);
+    
+    /// <summary>
+    /// Clear all injection resolvers from the container.
+    /// </summary>
+    void ClearResolvers();
 }

@@ -13,6 +13,18 @@ namespace InjectionExpert;
 public interface IInjectionProvider
 {
     /// <summary>
+    /// Represents a delegate responsible for resolving dependency injections based on the
+    /// provided type, key, and target information.
+    /// </summary>
+    public delegate (object Instance, bool ShouldCache)? InjectionResolver(
+        IInjectionProvider provider, Type type, object? key, InjectionTarget target);
+    
+    /// <summary>
+    /// Injection resolvers that are used to resolve injections when no matching entry is found.
+    /// </summary>
+    IEnumerable<InjectionResolver> Resolvers { get; }
+    
+    /// <summary>
     /// Retrieves the injection entry for the specified type, key, and target.
     /// </summary>
     /// <param name="type">The type of the injection entry to retrieve.</param>
