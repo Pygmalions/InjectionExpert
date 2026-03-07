@@ -14,6 +14,48 @@ public static class InjectionContainerExtensions
         /// <returns>True if the entry is removed, or false if the entry is not found.</returns>
         public bool RemoveEntry<TInjection>(object? key = null)
             => container.RemoveEntry(typeof(TInjection), key);
+
+        /// <summary>
+        /// Add a resolver to this container.
+        /// </summary>
+        /// <param name="shouldCache">
+        /// If true, the resolver will instruct scopes to cache the injections.
+        /// </param>
+        /// <param name="resolver">Resolver to add.</param>
+        public IInjectionContainer AddResolver(
+            bool shouldCache,
+            Func<IInjectionProvider, Type, object?, InjectionTarget, object?> resolver)
+        {
+            container.AddResolver((provider, type, key, target) =>
+            {
+                if (resolver(provider, type, key, target) is { } result)
+                    return (result, shouldCache);
+                return null;
+            });
+            
+            return container;
+        }
+        
+        /// <summary>
+        /// Add a resolver to this container.
+        /// </summary>
+        /// <param name="shouldCache">
+        /// If true, the resolver will instruct scopes to cache the injections.
+        /// </param>
+        /// <param name="resolver">Resolver to add.</param>
+        public IInjectionContainer AddResolver(
+            bool shouldCache,
+            Func<Type, object?, object?> resolver)
+        {
+            container.AddResolver((_, type, key, _) =>
+            {
+                if (resolver(type, key) is { } result)
+                    return (result, shouldCache);
+                return null;
+            });
+            
+            return container;
+        }
     }
     
     extension(IInjectionContainer container)
